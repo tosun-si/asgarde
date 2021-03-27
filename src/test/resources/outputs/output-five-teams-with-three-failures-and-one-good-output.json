@@ -1,0 +1,21 @@
+[
+  {
+    "name": "REAL",
+    "score": 5,
+    "profit": 10,
+    "nickName": "Nick name REAL",
+    "checkError": true,
+    "players": [
+      {
+        "firstName": "Karim",
+        "lastName": "Benzema",
+        "age": 33
+      },
+      {
+        "firstName": "Luca",
+        "lastName": "Modric",
+        "age": 20
+      }
+    ]
+  }
+]

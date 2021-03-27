@@ -1,0 +1,21 @@
+[
+  {
+    "name": "PSG",
+    "score": 0,
+    "profit": null,
+    "nickName": null,
+    "checkError": true,
+    "players": [
+      {
+        "firstName": "kylian",
+        "lastName": "Mbappe",
+        "age": 20
+      },
+      {
+        "firstName": "Da Silva Santos Junior",
+        "lastName": "Neymar",
+        "age": 27
+      }
+    ]
+  }
+]

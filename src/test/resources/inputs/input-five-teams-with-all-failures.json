@@ -1,0 +1,59 @@
+[
+  {
+    "name": "PSG",
+    "score": 0,
+    "profit": null,
+    "nickName": null,
+    "checkError": true,
+    "players": [
+      {
+        "firstName": "kylian",
+        "lastName": "Mbappe",
+        "age": 20
+      },
+      {
+        "firstName": "Da Silva Santos Junior",
+        "lastName": "Neymar",
+        "age": 27
+      }
+    ]
+  },
+  {
+    "name": "JUVENTUS",
+    "score": 0,
+    "profit": null,
+    "nickName": null,
+    "checkError": true,
+    "players": [
+      {
+        "firstName": "Cristiano",
+        "lastName": "Ronaldo",
+        "age": 33
+      },
+      {
+        "firstName": "Blaise",
+        "lastName": "Matuidi",
+        "age": 32
+      }
+    ]
+  },
+  {
+    "name": "BAYERN",
+    "score": 0,
+    "profit": null,
+    "nickName": null,
+    "checkError": true,
+    "players": [
+      {
+        "firstName": "Thomas",
+        "lastName": "Muller",
+        "age": 32
+      },
+      {
+        "firstName": "Robert",
+        "lastName": "Lewandowski",
+        "age": 32
+      }
+    ]
+  }
+]

@@ -1,0 +1,8 @@
+{"namespace": "avro.generated",
+ "type": "record",
+ "name": "AvroTest",
+ "fields": [
+     {"name": "id", "type": ["int", "null"]},
+     {"name": "name", "type": ["string", "null"]}
+ ]
+}
