@@ -179,7 +179,7 @@ Problems with this approach:
 - There is no centralized code to concat all the errors, we have to concat all failures (can be centralized).
  
 
-### Usual Beam pipeline with error handling using pan-data-common-error-handler
+### Usual Beam pipeline with error handling using Asgarde
 
 Here's the same flow with error handling, but using this library instead:
 
