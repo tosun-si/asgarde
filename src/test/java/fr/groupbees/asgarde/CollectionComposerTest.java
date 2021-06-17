@@ -1,5 +1,12 @@
-package org.asgarde;
+package fr.groupbees.asgarde;
 
+import fr.groupbees.asgarde.settings.*;
+import fr.groupbees.asgarde.settings.Datasets.OtherTeam;
+import fr.groupbees.asgarde.settings.Datasets.Team;
+import fr.groupbees.asgarde.transforms.BaseElementFn;
+import fr.groupbees.asgarde.transforms.FilterFn;
+import fr.groupbees.asgarde.transforms.MapElementFn;
+import fr.groupbees.asgarde.transforms.MapProcessContextFn;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import org.apache.beam.sdk.coders.Coder;
@@ -16,13 +23,6 @@ import org.apache.beam.sdk.transforms.WithFailures.Result;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.TypeDescriptor;
-import org.asgarde.settings.*;
-import org.asgarde.settings.Datasets.OtherTeam;
-import org.asgarde.settings.Datasets.Team;
-import org.asgarde.transforms.BaseElementFn;
-import org.asgarde.transforms.FilterFn;
-import org.asgarde.transforms.MapElementFn;
-import org.asgarde.transforms.MapProcessContextFn;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -64,7 +64,7 @@ public class CollectionComposerTest implements Serializable {
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElements =
                 teams -> CollectionComposer.of(teams)
                         .apply(MAP_TO_OTHER_TEAM, MapElements
-                                .into(TypeDescriptor.of(OtherTeam.class))
+                                .into(of(OtherTeam.class))
                                 .via(TestSettings::toOtherTeam)
                                 .exceptionsInto(of(Failure.class))
                                 .exceptionsVia(Failure::from))
@@ -72,7 +72,7 @@ public class CollectionComposerTest implements Serializable {
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementsInternalErrorHandling =
                 teams -> CollectionComposer.of(teams)
-                        .apply(MAP_TO_OTHER_TEAM, MapElements.into(TypeDescriptor.of(OtherTeam.class)).via(TestSettings::toOtherTeam))
+                        .apply(MAP_TO_OTHER_TEAM, MapElements.into(of(OtherTeam.class)).via(TestSettings::toOtherTeam))
                         .getResult();
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultSeparateTransform =
@@ -87,14 +87,14 @@ public class CollectionComposerTest implements Serializable {
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementFn =
                 teams -> CollectionComposer.of(teams)
-                        .apply(MAP_TO_OTHER_TEAM, MapElementFn.into(TypeDescriptor.of(OtherTeam.class)).via(TestSettings::toOtherTeam))
+                        .apply(MAP_TO_OTHER_TEAM, MapElementFn.into(of(OtherTeam.class)).via(TestSettings::toOtherTeam))
                         .getResult();
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapProcessElementFn =
                 teams -> CollectionComposer.of(teams)
                         .apply(CONTEXT_TO_OTHER_TEAM, MapProcessContextFn
                                 .from(Team.class)
-                                .into(TypeDescriptor.of(OtherTeam.class))
+                                .into(of(OtherTeam.class))
                                 .via(context -> TestSettings.toOtherTeam(context.element())))
                         .getResult();
 
@@ -115,7 +115,7 @@ public class CollectionComposerTest implements Serializable {
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElements =
                 teams -> CollectionComposer.of(teams)
                         .apply(MAP_TO_OTHER_TEAM, MapElements
-                                .into(TypeDescriptor.of(OtherTeam.class))
+                                .into(of(OtherTeam.class))
                                 .via(TestSettings::toOtherTeamWithException)
                                 .exceptionsInto(of(Failure.class))
                                 .exceptionsVia(Failure::from))
@@ -123,19 +123,19 @@ public class CollectionComposerTest implements Serializable {
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementsInternalErrorHandling =
                 teams -> CollectionComposer.of(teams)
-                        .apply(MAP_TO_OTHER_TEAM, MapElements.into(TypeDescriptor.of(OtherTeam.class)).via(TestSettings::toOtherTeamWithException))
+                        .apply(MAP_TO_OTHER_TEAM, MapElements.into(of(OtherTeam.class)).via(TestSettings::toOtherTeamWithException))
                         .getResult();
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementFn =
                 teams -> CollectionComposer.of(teams)
-                        .apply(MAP_TO_OTHER_TEAM, MapElementFn.into(TypeDescriptor.of(OtherTeam.class)).via(TestSettings::toOtherTeamWithException))
+                        .apply(MAP_TO_OTHER_TEAM, MapElementFn.into(of(OtherTeam.class)).via(TestSettings::toOtherTeamWithException))
                         .getResult();
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapProcessElementFn =
                 teams -> CollectionComposer.of(teams)
                         .apply(CONTEXT_TO_OTHER_TEAM, MapProcessContextFn
                                 .from(Team.class)
-                                .into(TypeDescriptor.of(OtherTeam.class))
+                                .into(of(OtherTeam.class))
                                 .via(context -> TestSettings.toOtherTeamWithException(context.element())))
                         .getResult();
 
@@ -154,7 +154,7 @@ public class CollectionComposerTest implements Serializable {
         final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultMapElements =
                 teams -> CollectionComposer.of(teams)
                         .apply(FLAT_MAP_TO_PLAYER, FlatMapElements
-                                .into(TypeDescriptor.of(Datasets.Player.class))
+                                .into(of(Datasets.Player.class))
                                 .via(Team::getPlayers)
                                 .exceptionsInto(of(Failure.class))
                                 .exceptionsVia(Failure::from))
@@ -162,7 +162,7 @@ public class CollectionComposerTest implements Serializable {
 
         final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultMapElementsInternalErrorHandling =
                 teams -> CollectionComposer.of(teams)
-                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElements.into(TypeDescriptor.of(Datasets.Player.class)).via(Team::getPlayers))
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElements.into(of(Datasets.Player.class)).via(Team::getPlayers))
                         .getResult();
 
 
@@ -179,7 +179,7 @@ public class CollectionComposerTest implements Serializable {
         final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultFlatMapElements =
                 teams -> CollectionComposer.of(teams)
                         .apply(FLAT_MAP_TO_PLAYER, FlatMapElements
-                                .into(TypeDescriptor.of(Datasets.Player.class))
+                                .into(of(Datasets.Player.class))
                                 .via(TestSettings::toPlayersWithException)
                                 .exceptionsInto(of(Failure.class))
                                 .exceptionsVia(Failure::from))
@@ -187,7 +187,7 @@ public class CollectionComposerTest implements Serializable {
 
         final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultFlatMapElementsInternalErrorHandling =
                 teams -> CollectionComposer.of(teams)
-                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElements.into(TypeDescriptor.of(Datasets.Player.class)).via(TestSettings::toPlayersWithException))
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElements.into(of(Datasets.Player.class)).via(TestSettings::toPlayersWithException))
                         .getResult();
 
         return new Object[][]{
@@ -213,14 +213,14 @@ public class CollectionComposerTest implements Serializable {
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementFn =
                 teams -> CollectionComposer.of(teams)
-                        .apply(MAP_TO_OTHER_TEAM, MapElementFn.into(TypeDescriptor.of(OtherTeam.class)).via(TestSettings::toOtherTeam))
+                        .apply(MAP_TO_OTHER_TEAM, MapElementFn.into(of(OtherTeam.class)).via(TestSettings::toOtherTeam))
                         .getResult();
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapProcessElementFn =
                 teams -> CollectionComposer.of(teams)
                         .apply(CONTEXT_TO_OTHER_TEAM, MapProcessContextFn
                                 .from(Team.class)
-                                .into(TypeDescriptor.of(OtherTeam.class))
+                                .into(of(OtherTeam.class))
                                 .via(context -> TestSettings.toOtherTeam(context.element())))
                         .getResult();
 
@@ -233,27 +233,27 @@ public class CollectionComposerTest implements Serializable {
                 {
                         resultSeparateTransform,
                         SerializableCoder.of(OtherTeam.class),
-                        TypeDescriptor.of(OtherTeam.class)
+                        of(OtherTeam.class)
                 },
                 {
                         resultSeparateDoFn,
                         SerializableCoder.of(OtherTeam.class),
-                        TypeDescriptor.of(OtherTeam.class)
+                        of(OtherTeam.class)
                 },
                 {
                         resultMapElementFn,
                         SerializableCoder.of(OtherTeam.class),
-                        TypeDescriptor.of(OtherTeam.class)
+                        of(OtherTeam.class)
                 },
                 {
                         resultMapProcessElementFn,
                         SerializableCoder.of(OtherTeam.class),
-                        TypeDescriptor.of(OtherTeam.class)
+                        of(OtherTeam.class)
                 },
                 {
                         resultFilterFn,
                         SerializableCoder.of(Team.class),
-                        TypeDescriptor.of(Team.class)
+                        of(Team.class)
                 }
         };
     }
@@ -268,7 +268,7 @@ public class CollectionComposerTest implements Serializable {
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementFn =
                 teams -> CollectionComposer.of(teams)
                         .apply(MAP_TO_OTHER_TEAM, MapElementFn
-                                .into(TypeDescriptor.of(OtherTeam.class))
+                                .into(of(OtherTeam.class))
                                 .via(TestSettings::toOtherTeam)
                                 .withSetupAction(() -> System.out.print(consoleMessageMapElementFn)))
                         .getResult();
@@ -278,7 +278,7 @@ public class CollectionComposerTest implements Serializable {
                 teams -> CollectionComposer.of(teams)
                         .apply(MAP_TO_OTHER_TEAM, MapProcessContextFn
                                 .from(Team.class)
-                                .into(TypeDescriptor.of(OtherTeam.class))
+                                .into(of(OtherTeam.class))
                                 .via(ctx -> TestSettings.toOtherTeam(ctx.element()))
                                 .withSetupAction(() -> System.out.print(consoleMessageMapProcessElementFn)))
                         .getResult();
@@ -437,7 +437,7 @@ public class CollectionComposerTest implements Serializable {
         final Result<PCollection<OtherTeam>, Failure> result = CollectionComposer.of(teamCollection)
                 .apply(CONTEXT_TO_OTHER_TEAM, MapProcessContextFn
                                 .from(Team.class)
-                                .into(TypeDescriptor.of(OtherTeam.class))
+                                .into(of(OtherTeam.class))
                                 .via(context -> TestSettings.toOtherTeamWithSideInputField(sideInput, context)),
                         Collections.singletonList(sideInput))
                 .getResult();
@@ -460,9 +460,9 @@ public class CollectionComposerTest implements Serializable {
 
         // When.
         final Result<PCollection<Team>, Failure> result = CollectionComposer.of(teamCollection)
-                .apply(MAP_TO_TEAM, MapElements.into(TypeDescriptor.of(Team.class)).via(this::toTeamWithScore))
-                .apply(CONTEXT_TO_TEAM, MapProcessContextFn.from(Team.class).into(TypeDescriptor.of(Team.class)).via(this::toTeamWithProfit))
-                .apply(MAP_TO_TEAM + "fn", MapElementFn.into(TypeDescriptor.of(Team.class)).via(this::toTeamWithNickName))
+                .apply(MAP_TO_TEAM, MapElements.into(of(Team.class)).via(this::toTeamWithScore))
+                .apply(CONTEXT_TO_TEAM, MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithProfit))
+                .apply(MAP_TO_TEAM + "fn", MapElementFn.into(of(Team.class)).via(this::toTeamWithNickName))
                 .getResult();
 
         final PCollection<Failure> failures = result.failures();
@@ -485,9 +485,9 @@ public class CollectionComposerTest implements Serializable {
 
         // When.
         final Result<PCollection<Team>, Failure> result = CollectionComposer.of(teamCollection)
-                .apply(MAP_TO_TEAM, MapElements.into(TypeDescriptor.of(Team.class)).via(this::toTeamWithScore))
-                .apply(CONTEXT_TO_TEAM, MapProcessContextFn.from(Team.class).into(TypeDescriptor.of(Team.class)).via(this::toTeamWithProfit))
-                .apply(MAP_TO_TEAM + "2", MapElementFn.into(TypeDescriptor.of(Team.class)).via(this::toTeamWithNickName))
+                .apply(MAP_TO_TEAM, MapElements.into(of(Team.class)).via(this::toTeamWithScore))
+                .apply(CONTEXT_TO_TEAM, MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithProfit))
+                .apply(MAP_TO_TEAM + "2", MapElementFn.into(of(Team.class)).via(this::toTeamWithNickName))
                 .apply(FILTER_TEAMS, FilterFn.by(this::isNotBarcelona))
                 .getResult();
 
@@ -513,12 +513,12 @@ public class CollectionComposerTest implements Serializable {
         final Result<PCollection<Team>, Failure> result = CollectionComposer.of(teamCollection)
                 .apply(MAP_TO_TEAM,
                         MapElements
-                                .into(TypeDescriptor.of(Team.class))
+                                .into(of(Team.class))
                                 .via(this::toTeamWithScore)
                                 .exceptionsInto(of(Failure.class))
                                 .exceptionsVia(Failure::from))
-                .apply(CONTEXT_TO_TEAM, MapProcessContextFn.from(Team.class).into(TypeDescriptor.of(Team.class)).via(this::toTeamWithProfit))
-                .apply(MAP_TO_TEAM + "2", MapElementFn.into(TypeDescriptor.of(Team.class)).via(this::toTeamWithNickName))
+                .apply(CONTEXT_TO_TEAM, MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithProfit))
+                .apply(MAP_TO_TEAM + "2", MapElementFn.into(of(Team.class)).via(this::toTeamWithNickName))
                 .apply(FILTER_TEAMS, FilterFn.by(this::isNotBarcelona))
                 .getResult();
 
@@ -560,7 +560,7 @@ public class CollectionComposerTest implements Serializable {
         // When.
         final Result<PCollection<Datasets.Player>, Failure> result = CollectionComposer.of(teamCollection)
                 .apply(FLAT_MAP_TO_PLAYER, FlatMapElements
-                        .into(TypeDescriptor.of(Datasets.Player.class))
+                        .into(of(Datasets.Player.class))
                         .via(this::simulateFlatMapErrorPsgTeam)
                         .exceptionsInto(of(Failure.class))
                         .exceptionsVia(Failure::from))

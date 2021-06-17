@@ -1,10 +1,10 @@
-package org.asgarde.settings;
+package fr.groupbees.asgarde.settings;
 
 import avro.shaded.com.google.common.collect.ImmutableMap;
 import com.fasterxml.jackson.core.type.TypeReference;
+import fr.groupbees.asgarde.CollectionComposerTest;
 import lombok.*;
-import org.asgarde.CollectionComposerTest;
-import org.asgarde.Failure;
+import fr.groupbees.asgarde.Failure;
 
 import java.io.Serializable;
 import java.util.List;

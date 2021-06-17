@@ -1,4 +1,4 @@
-package org.asgarde;
+package fr.groupbees.asgarde;
 
 import org.apache.beam.sdk.transforms.WithFailures;
 

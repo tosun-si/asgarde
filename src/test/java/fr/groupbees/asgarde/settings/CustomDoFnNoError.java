@@ -1,7 +1,7 @@
-package org.asgarde.settings;
+package fr.groupbees.asgarde.settings;
 
-import org.asgarde.Failure;
-import org.asgarde.transforms.BaseElementFn;
+import fr.groupbees.asgarde.Failure;
+import fr.groupbees.asgarde.transforms.BaseElementFn;
 
 /**
  * Custom DoFn without error for testing purpose.

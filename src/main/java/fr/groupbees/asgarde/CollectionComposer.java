@@ -1,13 +1,13 @@
-package org.asgarde;
+package fr.groupbees.asgarde;
 
+import fr.groupbees.asgarde.transforms.BaseElementFn;
+import fr.groupbees.asgarde.transforms.FilterFn;
+import fr.groupbees.asgarde.transforms.MapElementFn;
 import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.WithFailures.Result;
 import org.apache.beam.sdk.values.*;
-import org.asgarde.transforms.BaseElementFn;
-import org.asgarde.transforms.FilterFn;
-import org.asgarde.transforms.MapElementFn;
-import org.asgarde.transforms.MapProcessContextFn;
+import fr.groupbees.asgarde.transforms.MapProcessContextFn;
 
 import java.io.Serializable;
 import java.util.Collections;

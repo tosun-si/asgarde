@@ -1,7 +1,7 @@
-package org.asgarde.transforms;
+package fr.groupbees.asgarde.transforms;
 
-import org.asgarde.CollectionComposer;
-import org.asgarde.Failure;
+import fr.groupbees.asgarde.Failure;
+import fr.groupbees.asgarde.CollectionComposer;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
