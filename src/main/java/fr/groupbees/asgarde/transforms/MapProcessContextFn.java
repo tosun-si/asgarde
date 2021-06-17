@@ -1,9 +1,9 @@
-package org.asgarde.transforms;
+package fr.groupbees.asgarde.transforms;
 
+import fr.groupbees.asgarde.Failure;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
-import org.asgarde.Failure;
 
 import static java.util.Objects.requireNonNull;
 

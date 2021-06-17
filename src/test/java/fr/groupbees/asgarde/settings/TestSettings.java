@@ -1,8 +1,8 @@
-package org.asgarde.settings;
+package fr.groupbees.asgarde.settings;
 
+import fr.groupbees.asgarde.Failure;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.PCollectionView;
-import org.asgarde.Failure;
 
 import java.util.List;
 import java.util.stream.StreamSupport;

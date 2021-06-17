@@ -1,4 +1,4 @@
-package org.asgarde.settings;
+package fr.groupbees.asgarde.settings;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;

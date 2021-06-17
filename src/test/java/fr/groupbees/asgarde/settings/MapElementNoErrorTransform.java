@@ -1,9 +1,9 @@
-package org.asgarde.settings;
+package fr.groupbees.asgarde.settings;
 
-import org.asgarde.CollectionComposer;
-import org.asgarde.Failure;
-import org.asgarde.settings.Datasets.OtherTeam;
-import org.asgarde.settings.Datasets.Team;
+import fr.groupbees.asgarde.CollectionComposer;
+import fr.groupbees.asgarde.Failure;
+import fr.groupbees.asgarde.settings.Datasets.OtherTeam;
+import fr.groupbees.asgarde.settings.Datasets.Team;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.WithFailures.Result;

@@ -1,10 +1,10 @@
-package org.asgarde;
+package fr.groupbees.asgarde;
 
 import avro.generated.AvroTest;
+import fr.groupbees.asgarde.settings.JsonUtil;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import org.apache.beam.sdk.transforms.WithFailures.ExceptionElement;
-import org.asgarde.settings.JsonUtil;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

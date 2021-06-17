@@ -1,6 +1,6 @@
-package org.asgarde.transforms;
+package fr.groupbees.asgarde.transforms;
 
-import org.asgarde.Failure;
+import fr.groupbees.asgarde.Failure;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TypeDescriptor;
