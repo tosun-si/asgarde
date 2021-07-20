@@ -5,6 +5,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <name>ASGARDE</name>
+
+    <description>
+        Asgarde allows error handling with Apache Beam.
+    </description>
+
+    <url>https://github.com/tosun-si/asgarde</url>
+
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
     <version>0.7.0</version>
@@ -35,7 +42,39 @@
         <coveralls-maven-plugin.version>4.3.0</coveralls-maven-plugin.version>
     </properties>
 
-    <inceptionYear>2020</inceptionYear>
+    <inceptionYear>2021</inceptionYear>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>http://www.opensource.org/licenses/mit-license.php</url>
+        </license>
+    </licenses>
+
+    <prerequisites>
+        <maven>3.5.0</maven>
+    </prerequisites>
+
+    <scm>
+        <connection>scm:git:https://github.com/tosun-si/asgarde.git</connection>
+        <developerConnection>scm:git:https://github.com/tosun-si/asgarde.git</developerConnection>
+        <url>https://github.com/tosun-si/asgarde</url>
+    </scm>
+
+    <developers>
+        <developer>
+            <id>mazlum-tosun</id>
+            <name>Mazlum Tosun</name>
+            <email>mtosun@groupbees.fr</email>
+            <organization>Groupbees</organization>
+            <organizationUrl>https://www.groupbees.fr</organizationUrl>
+            <roles>
+                <role>owner</role>
+                <role>developer</role>
+            </roles>
+            <timezone>+1</timezone>
+        </developer>
+    </developers>
 
     <dependencies>
 
@@ -193,6 +232,10 @@
                                 <goals>
                                     <goal>sign</goal>
                                 </goals>
+                                <configuration>
+                                    <keyname>${gpg.keyname}</keyname>
+                                    <passphraseServerId>${gpg.keyname}</passphraseServerId>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>
