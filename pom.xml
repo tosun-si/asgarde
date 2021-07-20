@@ -233,8 +233,8 @@
                                     <goal>sign</goal>
                                 </goals>
                                 <configuration>
-                                    <keyname>${gpg.keyname}</keyname>
-                                    <passphraseServerId>${gpg.keyname}</passphraseServerId>
+                                    <keyname>${env.OSSRH_GPG_PRIVATE_KEY}</keyname>
+                                    <passphraseServerId>${env.OSSRH_GPG_PASSPHRASE}</passphraseServerId>
                                 </configuration>
                             </execution>
                         </executions>
