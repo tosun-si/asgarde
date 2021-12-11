@@ -12,7 +12,7 @@ import static java.util.Objects.requireNonNull;
  * with error handling.
  *
  * <p>
- * This class is based on an input class and output type descriptor and take a {@link SerializableFunction} to execute
+ * This class is based on an input class and output type descriptor and take a {@link org.apache.beam.sdk.transforms.SerializableFunction} to execute
  * the mapping treatment lazily.
  * These types allows to give type information and handle default coders.
  * This function is from {@link org.apache.beam.sdk.transforms.DoFn.ProcessContext} object to the output type.
@@ -21,16 +21,16 @@ import static java.util.Objects.requireNonNull;
  * </p>
  *
  * <p>
- * This class can take a start action {@link SerializableAction}, used in the setup of Beam lifecycle.
+ * This class can take a start action {@link fr.groupbees.asgarde.transforms.SerializableAction}, used in the setup of Beam lifecycle.
  * This function is not required and if passed, it is executed lazily in the setup process.
  * </p>
  *
  * <p>
- * If there are errors in the process, an failure Tag based on {@link Failure} object is used to handle
+ * If there are errors in the process, an failure Tag based on {@link fr.groupbees.asgarde.Failure} object is used to handle
  * the failure output (and side outputs)
  * </p>
  *
- * <p>Example usage:
+ * <p>Example usage:</p>
  *
  * <pre>{@code
  *        // With serializable function but without start action.
@@ -45,7 +45,8 @@ import static java.util.Objects.requireNonNull;
  *                    .withSetupAction(() -> System.out.println("Starting of mapping...")
  *      }
  * </pre>
- * </p>
+ *
+ * @author mazlum
  */
 public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT> {
 
@@ -63,6 +64,10 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
 
     /**
      * Factory method of class, that take the input type class.
+     *
+     * @param inputClass a {@link java.lang.Class} object
+     * @param <InputT> a InputT class
+     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
      */
     public static <InputT> MapProcessContextFn<InputT, ?> from(final Class<InputT> inputClass) {
         final SerializableAction defaultSetupAction = () -> {
@@ -73,6 +78,10 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
 
     /**
      * Add the output type descriptors, it's required because it allows to add default coder for Output.
+     *
+     * @param outputType a {@link org.apache.beam.sdk.values.TypeDescriptor} object
+     * @param <NewOutputT> a NewOutputT class
+     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
      */
     public <NewOutputT> MapProcessContextFn<InputT, NewOutputT> into(final TypeDescriptor<NewOutputT> outputType) {
         final SerializableAction defaultSetupAction = () -> {
@@ -82,12 +91,13 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
     }
 
     /**
-     * Method that takes the {@link SerializableFunction} that will be evaluated in the process element phase.
+     * Method that takes the {@link org.apache.beam.sdk.transforms.SerializableFunction} that will be evaluated in the process element phase.
      * This function is based on a {@link org.apache.beam.sdk.transforms.DoFn.ProcessContext} as input and a generic ouput.
      * <p>
      * This function is mandatory in process element phase.
      *
      * @param processContextMapper serializable function from process context and to output
+     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
      */
     public MapProcessContextFn<InputT, OutputT> via(final SerializableFunction<DoFn<InputT, OutputT>.ProcessContext, OutputT> processContextMapper) {
         requireNonNull(processContextMapper);
@@ -96,11 +106,12 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
     }
 
     /**
-     * Method that takes the {@link SerializableAction} that will be evaluated in the setup element phase.
+     * Method that takes the {@link fr.groupbees.asgarde.transforms.SerializableAction} that will be evaluated in the setup element phase.
      * <p>
      * This function is not mandatory in the setup phase.
      *
      * @param setupAction serializable action
+     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
      */
     public MapProcessContextFn<InputT, OutputT> withSetupAction(final SerializableAction setupAction) {
         requireNonNull(setupAction);
@@ -108,11 +119,19 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
         return new MapProcessContextFn<>(inputType, outputType, setupAction, processContextMapper);
     }
 
+    /**
+     * <p>setup.</p>
+     */
     @Setup
     public void setup() {
         setupAction.execute();
     }
 
+    /**
+     * <p>processElement.</p>
+     *
+     * @param ctx a {@link org.apache.beam.sdk.transforms.DoFn.ProcessContext} object
+     */
     @ProcessElement
     public void processElement(DoFn<InputT, OutputT>.ProcessContext ctx) {
         requireNonNull(processContextMapper);

@@ -8,6 +8,7 @@ on:
 
 jobs:
   publish:
+    environment: asgarde_ci_cd
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -23,14 +24,14 @@ jobs:
         uses: actions/setup-java@v1
         with: # running setup-java again overwrites the settings.xml
           java-version: 1.8
-          server-id: maven
-          server-username: ${{ secrets.OSSRH_USERNAME }}
-          server-password: ${{ secrets.OSSRH_TOKEN }}
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_CENTRAL_TOKEN
           gpg-private-key: ${{ secrets.OSSRH_GPG_PRIVATE_KEY }}
-          gpg-passphrase: ${{ secrets.OSSRH_GPG_PASSPHRASE }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       - name: Publish to Apache Maven Central
-        run: mvn deploy
+        run: mvn clean deploy -P release -Dmaven.skip.test=true
         env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_CENTRAL_TOKEN: ${{ secrets.OSSRH_TOKEN }}

@@ -7,7 +7,9 @@ import java.io.Serializable;
  * <p>
  * No input and no output, only an action to execute.
  * <p>
- * To be used in Beam Workers, we need to make this function as {@link Serializable}.
+ * To be used in Beam Workers, we need to make this function as {@link java.io.Serializable}.
+ *
+ * @author mazlum
  */
 @FunctionalInterface
 public interface SerializableAction extends Serializable {
