@@ -12,22 +12,22 @@ import static java.util.Objects.requireNonNull;
  * with error handling.
  *
  * <p>
- * This class is based on a output type descriptor and take a {@link SerializableFunction} to execute the mapping treatment
+ * This class is based on a output type descriptor and take a {@link org.apache.beam.sdk.transforms.SerializableFunction} to execute the mapping treatment
  * lazily. This output type allows to give type information and handle default coder for output.
  * This function is mandatory and executed in the ProcessElement stage of Beam lifecycle.
  * </p>
  *
  * <p>
- * This class can take a start action {@link SerializableAction}, used in the setup of Beam lifecycle.
+ * This class can take a start action {@link fr.groupbees.asgarde.transforms.SerializableAction}, used in the setup of Beam lifecycle.
  * This function is not required and if it passed, it is executed lazily in the setup process.
  * </p>
  *
  * <p>
- * If there are errors in the process, an failure Tag based on {@link Failure} object is used to handle
+ * If there are errors in the process, an failure Tag based on {@link fr.groupbees.asgarde.Failure} object is used to handle
  * the failure output (and side outputs)
  * </p>
  *
- * <p>Example usage:
+ * <p>Example usage:</p>
  *
  * <pre>{@code
  *        // With serializable function but without start action.
@@ -40,7 +40,8 @@ import static java.util.Objects.requireNonNull;
  *                    .withSetupAction(() -> System.out.println("Starting of mapping...")
  *      }
  * </pre>
- * </p>
+ *
+ * @author mazlum
  */
 public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT> {
 
@@ -57,7 +58,11 @@ public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT
     }
 
     /**
-     * Factory method of class, that take the output {@link TypeDescriptor}.
+     * Factory method of class, that take the output {@link org.apache.beam.sdk.values.TypeDescriptor}.
+     *
+     * @param outputType a {@link org.apache.beam.sdk.values.TypeDescriptor} object
+     * @param <OutputT> a OutputT class
+     * @return a {@link fr.groupbees.asgarde.transforms.MapElementFn} object
      */
     public static <OutputT> MapElementFn<?, OutputT> into(final TypeDescriptor<OutputT> outputType) {
         final SerializableAction defaultSetupAction = () -> {
@@ -67,11 +72,13 @@ public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT
     }
 
     /**
-     * Method that takes the {@link SerializableFunction} that will be evaluated in the process element phase.
+     * Method that takes the {@link org.apache.beam.sdk.transforms.SerializableFunction} that will be evaluated in the process element phase.
      * <p>
      * This function is mandatory in process element phase.
      *
      * @param inputElementMapper serializable function from input and to output
+     * @param <NewInputT> a NewInputT class
+     * @return a {@link fr.groupbees.asgarde.transforms.MapElementFn} object
      */
     public <NewInputT> MapElementFn<NewInputT, OutputT> via(final SerializableFunction<NewInputT, OutputT> inputElementMapper) {
         requireNonNull(inputElementMapper);
@@ -81,22 +88,31 @@ public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT
     }
 
     /**
-     * Method that takes the {@link SerializableAction} that will be evaluated in the setup element phase.
+     * Method that takes the {@link fr.groupbees.asgarde.transforms.SerializableAction} that will be evaluated in the setup element phase.
      * <p>
      * This function is not mandatory in the setup phase.
      *
      * @param setupAction serializable action
+     * @return a {@link fr.groupbees.asgarde.transforms.MapElementFn} object
      */
     public MapElementFn<InputT, OutputT> withSetupAction(final SerializableAction setupAction) {
         requireNonNull(inputElementMapper);
         return new MapElementFn<>(inputType, outputType, setupAction, inputElementMapper);
     }
 
+    /**
+     * <p>start.</p>
+     */
     @Setup
     public void start() {
         setupAction.execute();
     }
 
+    /**
+     * <p>processElement.</p>
+     *
+     * @param ctx a ProcessContext object
+     */
     @ProcessElement
     public void processElement(ProcessContext ctx) {
         requireNonNull(inputElementMapper);

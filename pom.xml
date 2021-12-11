@@ -14,7 +14,7 @@
 
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.7.0</version>
+    <version>0.13.1-SNAPSHOT</version>
 
     <packaging>jar</packaging>
 
@@ -23,20 +23,20 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <beam.version>2.28.0</beam.version>
+        <beam.version>2.34.0</beam.version>
         <slf4j.version>1.7.25</slf4j.version>
 
-        <lombok.version>1.18.10</lombok.version>
-        <junit.version>4.12</junit.version>
+        <lombok.version>1.18.22</lombok.version>
+        <junit.version>4.13.2</junit.version>
         <junit-params.version>1.1.1</junit-params.version>
-        <assertj.version>3.14.0</assertj.version>
-        <hamcrest.version>2.1</hamcrest.version>
+        <assertj.version>3.21.0</assertj.version>
+        <hamcrest.version>2.2</hamcrest.version>
         <maven-avro-plugin.version>1.8.1</maven-avro-plugin.version>
         <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>2.21.0</maven-surefire-plugin.version>
         <maven-source-plugin.version>2.2.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>2.9.1</maven-javadoc-plugin.version>
-        <maven-gpg-plugin.version>1.5</maven-gpg-plugin.version>
+        <maven-gpg-plugin.version>3.0.1</maven-gpg-plugin.version>
         <nexus-staging-maven-plugin.version>1.6.8</nexus-staging-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.2</jacoco-maven-plugin.version>
         <coveralls-maven-plugin.version>4.3.0</coveralls-maven-plugin.version>
@@ -232,12 +232,14 @@
                                 <goals>
                                     <goal>sign</goal>
                                 </goals>
-                                <configuration>
-                                    <keyname>${env.OSSRH_GPG_PRIVATE_KEY}</keyname>
-                                    <passphraseServerId>${env.OSSRH_GPG_PASSPHRASE}</passphraseServerId>
-                                </configuration>
                             </execution>
                         </executions>
+                        <configuration>
+                            <gpgArguments>
+                                <arg>--pinentry-mode</arg>
+                                <arg>loopback</arg>
+                            </gpgArguments>
+                        </configuration>
                     </plugin>
                     <plugin>
                         <groupId>org.sonatype.plugins</groupId>

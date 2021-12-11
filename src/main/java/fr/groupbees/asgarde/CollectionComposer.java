@@ -3,11 +3,11 @@ package fr.groupbees.asgarde;
 import fr.groupbees.asgarde.transforms.BaseElementFn;
 import fr.groupbees.asgarde.transforms.FilterFn;
 import fr.groupbees.asgarde.transforms.MapElementFn;
+import fr.groupbees.asgarde.transforms.MapProcessContextFn;
 import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.WithFailures.Result;
 import org.apache.beam.sdk.values.*;
-import fr.groupbees.asgarde.transforms.MapProcessContextFn;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -32,9 +32,10 @@ import java.util.Collections;
  * </p>
  *
  * <p>
- * Finally a Result<PCollection<T>, Failures>> is returned by the composition class :
+ * Finally a Result with output PCollection and failures PCollection is returned by the composition class :
  * From this, a {@link PCollection} of output T can be recovered and a {@link PCollection} of {@link Failure}
- * <p/>
+ * </p>
+ * @param <T> the type of elements in Composer class
  */
 public class CollectionComposer<T> {
 
@@ -47,7 +48,11 @@ public class CollectionComposer<T> {
     }
 
     /**
-     * Initializes a composer with given PCollection & an empty side collection.
+     * Initializes a composer with given PCollection with an empty side collection.
+     *
+     * @param inputPCollection the input PCollection
+     * @param <T>              the type of the input PCollection
+     * @return The CollectionComposer instance from the input PCollection
      */
     public static <T> CollectionComposer<T> of(final PCollection<T> inputPCollection) {
         return new CollectionComposer<>(inputPCollection, PCollectionList.empty(inputPCollection.getPipeline()));
@@ -57,9 +62,9 @@ public class CollectionComposer<T> {
      * Applies a {@link MapElements} in the input PCollection.
      *
      * <p>Internally, default {@link MapElements.MapWithFailures#exceptionsInto(TypeDescriptor)}
-     * and {@link MapElements.MapWithFailures#exceptionsVia(ProcessFunction) are applied on the {@link Failure} object.</p>
+     * and {@link MapElements.MapWithFailures#exceptionsVia(ProcessFunction)} are applied on the {@link Failure} object.</p>
      *
-     * <p>Example usage:
+     * <p>Example usage:</p>
      *
      * <pre>{@code
      *     Result<PCollection<String>, Failure>> result = CollectionComposer.of(words)
@@ -71,12 +76,11 @@ public class CollectionComposer<T> {
      *     PCollection<String> output = result.output();
      *     PCollection<Failure> failures = result.failures();
      *     }</pre>
-     * </p>
      *
      * @param name        name of the current transform application
      * @param mapElements mapElements
      * @param <OutputT>   the output type of the output PCollection
-     * @return CollectionComposer<OutputT>
+     * @return CollectionComposer of output
      */
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final MapElements<T, OutputT> mapElements) {
@@ -86,9 +90,9 @@ public class CollectionComposer<T> {
     /**
      * Applies a {@link FlatMapElements} in the input PCollection.
      * <p>Internally, default {@link FlatMapElements.FlatMapWithFailures#exceptionsInto(TypeDescriptor)}
-     * and {@link FlatMapElements.FlatMapWithFailures#exceptionsVia(ProcessFunction) are applied on the {@link Failure} object.</p>
+     * and {@link FlatMapElements.FlatMapWithFailures#exceptionsVia(ProcessFunction)} are applied on the {@link Failure} object.</p>
      *
-     * <p>Example usage:
+     * <p>Example usage:</p>
      *
      * <pre>{@code
      *     Result<PCollection<String>, Failure>> result = CollectionComposer.of(words)
@@ -101,12 +105,11 @@ public class CollectionComposer<T> {
      *     PCollection<String> output = result.output();
      *     PCollection<Failure> failures = result.failures();
      *     }</pre>
-     * </p>
      *
      * @param name            name of the current transform application
      * @param flatMapElements flatMapElements
      * @param <OutputT>       the output type of the output PCollection
-     * @return CollectionComposer<OutputT>
+     * @return CollectionComposer of output
      */
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final FlatMapElements<T, OutputT> flatMapElements) {
@@ -123,7 +126,7 @@ public class CollectionComposer<T> {
      * When this method is called, the client of api must handle the error externally
      * </p>
      *
-     * <p>Example usage:
+     * <p>Example usage:</p>
      *
      * <pre>{@code
      *     public static <T> Failure from(final WithFailures.ExceptionElement<T> exceptionElement) {
@@ -159,12 +162,11 @@ public class CollectionComposer<T> {
      *     PCollection<String> output = result.output();
      *     PCollection<Failure> failures = result.failures();
      *     }</pre>
-     * </p>
      *
      * @param name      name of the current transform application
      * @param transform transform with error handling provided by {@link MapElements} and {@link FlatMapElements} for example
      * @param <OutputT> the output type of the output PCollection
-     * @return CollectionComposer<OutputT>
+     * @return CollectionComposer of output
      */
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final PTransform<PCollection<T>, Result<PCollection<OutputT>, Failure>> transform) {
@@ -174,6 +176,11 @@ public class CollectionComposer<T> {
 
     /**
      * The same as {@link #apply(String, BaseElementFn, Iterable)} but without side inputs.
+     *
+     * @param name      the name of the current step
+     * @param doFn      current transformation
+     * @param <OutputT> the output after transformation
+     * @return CollectionComposer of output
      */
     public <OutputT extends Serializable> CollectionComposer<OutputT> apply(final String name,
                                                                             final BaseElementFn<T, OutputT> doFn) {
@@ -196,7 +203,7 @@ public class CollectionComposer<T> {
      *
      * @param name name of current operation
      * @param doFn filter Fn
-     * @return CollectionComposer<T>
+     * @return CollectionComposer of filtered element
      */
     public CollectionComposer<T> apply(final String name,
                                        final FilterFn<T> doFn) {
@@ -229,7 +236,7 @@ public class CollectionComposer<T> {
      * In order to do that the OutputT type should extend {@link Serializable}.
      * </p>
      *
-     * <p>Example usage:
+     * <p>Example usage:</p>
      *
      * <pre>{@code
      *     // Example with MapElementFn.
@@ -251,14 +258,14 @@ public class CollectionComposer<T> {
      *     PCollection<String> output = result.output();
      *     PCollection<Failure> failures = result.failures();
      *     }</pre>
-     * </p>
      *
-     * @param name      name of the current transform application
-     * @param doFn      current base element fn, for example by
-     *                  {@link MapElementFn} and
-     *                  {@link MapProcessContextFn}
-     * @param <OutputT> the output type of the output PCollection
-     * @return CollectionComposer<OutputT>
+     * @param name       name of the current transform application
+     * @param doFn       current base element fn, for example by
+     *                   {@link MapElementFn} and
+     *                   {@link MapProcessContextFn}
+     * @param sideInputs it's possible to pass and retrieve side inputs
+     * @param <OutputT>  the output type of the output PCollection
+     * @return CollectionComposer of output
      */
     public <OutputT extends Serializable> CollectionComposer<OutputT> apply(final String name,
                                                                             final BaseElementFn<T, OutputT> doFn,
@@ -279,6 +286,8 @@ public class CollectionComposer<T> {
     /**
      * Get the result of flow.
      * It corresponds to the output PCollection and failures PCollection.
+     *
+     * @return the {@link Result} with output PCollection and failures PCollection
      */
     public Result<PCollection<T>, Failure> getResult() {
         return Result.of(outputPCollection, getFailurePCollection());
@@ -286,6 +295,8 @@ public class CollectionComposer<T> {
 
     /**
      * Gets all the failures in a PCollection.
+     *
+     * @return all failures in a PCollection
      */
     private PCollection<Failure> getFailurePCollection() {
         return failuresPCollection.apply(Flatten.pCollections());
