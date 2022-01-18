@@ -1,7 +1,6 @@
 package fr.groupbees.asgarde.transforms;
 
 import fr.groupbees.asgarde.Failure;
-import fr.groupbees.asgarde.CollectionComposer;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
@@ -54,7 +53,7 @@ public class FilterFn<InputT> extends BaseElementFn<InputT, InputT> {
      * This {@link org.apache.beam.sdk.transforms.SerializableFunction} has a generic input type a Boolean in output.
      *
      * @param predicate a {@link org.apache.beam.sdk.transforms.SerializableFunction} object
-     * @param <InputT> a InputT class
+     * @param <InputT>  a InputT class
      * @return a {@link fr.groupbees.asgarde.transforms.FilterFn} object
      */
     public static <InputT> FilterFn<InputT> by(final SerializableFunction<InputT, Boolean> predicate) {
@@ -76,7 +75,7 @@ public class FilterFn<InputT> extends BaseElementFn<InputT, InputT> {
                 ctx.output(inputElement);
             }
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from(ctx.element(), throwable);
+            final Failure failure = Failure.from(pipelineStep, ctx.element(), throwable);
             ctx.output(failuresTag, failure);
         }
     }

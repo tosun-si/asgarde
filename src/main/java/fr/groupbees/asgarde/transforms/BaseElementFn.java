@@ -28,6 +28,8 @@ public abstract class BaseElementFn<InputT, OutputT> extends DoFn<InputT, Output
     protected final TupleTag<Failure> failuresTag = new TupleTag<Failure>() {
     };
 
+    protected String pipelineStep;
+
     /**
      * <p>Constructor for BaseElementFn.</p>
      */
@@ -39,7 +41,7 @@ public abstract class BaseElementFn<InputT, OutputT> extends DoFn<InputT, Output
     /**
      * <p>Constructor for BaseElementFn.</p>
      *
-     * @param inputType a {@link org.apache.beam.sdk.values.TypeDescriptor} object
+     * @param inputType  a {@link org.apache.beam.sdk.values.TypeDescriptor} object
      * @param outputType a {@link org.apache.beam.sdk.values.TypeDescriptor} object
      */
     protected BaseElementFn(TypeDescriptor<InputT> inputType, TypeDescriptor<OutputT> outputType) {
@@ -81,5 +83,12 @@ public abstract class BaseElementFn<InputT, OutputT> extends DoFn<InputT, Output
      */
     public TupleTag<Failure> getFailuresTag() {
         return failuresTag;
+    }
+
+    /**
+     * <p>Setter for the field <code>pipelineStep</code>.</p>
+     */
+    public void setPipelineStep(final String pipelineStep) {
+        this.pipelineStep = pipelineStep;
     }
 }

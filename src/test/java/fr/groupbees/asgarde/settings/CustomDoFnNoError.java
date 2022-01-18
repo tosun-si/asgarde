@@ -17,7 +17,7 @@ public class CustomDoFnNoError extends BaseElementFn<Datasets.Team, Datasets.Oth
         try {
             ctx.output(TestSettings.toOtherTeam(ctx.element()));
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from(ctx.element(), throwable);
+            final Failure failure = Failure.from(pipelineStep, ctx.element(), throwable);
             ctx.output(failuresTag, failure);
         }
     }

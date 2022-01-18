@@ -61,7 +61,7 @@ public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT
      * Factory method of class, that take the output {@link org.apache.beam.sdk.values.TypeDescriptor}.
      *
      * @param outputType a {@link org.apache.beam.sdk.values.TypeDescriptor} object
-     * @param <OutputT> a OutputT class
+     * @param <OutputT>  a OutputT class
      * @return a {@link fr.groupbees.asgarde.transforms.MapElementFn} object
      */
     public static <OutputT> MapElementFn<?, OutputT> into(final TypeDescriptor<OutputT> outputType) {
@@ -77,7 +77,7 @@ public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT
      * This function is mandatory in process element phase.
      *
      * @param inputElementMapper serializable function from input and to output
-     * @param <NewInputT> a NewInputT class
+     * @param <NewInputT>        a NewInputT class
      * @return a {@link fr.groupbees.asgarde.transforms.MapElementFn} object
      */
     public <NewInputT> MapElementFn<NewInputT, OutputT> via(final SerializableFunction<NewInputT, OutputT> inputElementMapper) {
@@ -119,7 +119,7 @@ public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT
         try {
             ctx.output(inputElementMapper.apply(ctx.element()));
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from(ctx.element(), throwable);
+            final Failure failure = Failure.from(pipelineStep, ctx.element(), throwable);
             ctx.output(failuresTag, failure);
         }
     }

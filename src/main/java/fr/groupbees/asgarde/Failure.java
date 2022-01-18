@@ -14,10 +14,14 @@ import java.io.Serializable;
  * @author mazlum
  */
 public class Failure implements Serializable {
+    private final String pipelineStep;
     private final String inputElement;
     private final Throwable exception;
 
-    private Failure(String inputElement, Throwable exception) {
+    private Failure(String pipelineStep,
+                    String inputElement,
+                    Throwable exception) {
+        this.pipelineStep = pipelineStep;
         this.inputElement = inputElement;
         this.exception = exception;
     }
@@ -25,25 +29,39 @@ public class Failure implements Serializable {
     /**
      * Build a {@link fr.groupbees.asgarde.Failure} object from an exception element provided by Beam.
      *
+     * @param pipelineStep     the current pipeline step
      * @param exceptionElement a {@link org.apache.beam.sdk.transforms.WithFailures.ExceptionElement} object
-     * @param <T> a T class
+     * @param <T>              a T class
      * @return a {@link fr.groupbees.asgarde.Failure} object
      */
-    public static <T> Failure from(final WithFailures.ExceptionElement<T> exceptionElement) {
+    public static <T> Failure from(final String pipelineStep,
+                                   final WithFailures.ExceptionElement<T> exceptionElement) {
         final T inputElement = exceptionElement.element();
-        return new Failure(inputElement.toString(), exceptionElement.exception());
+        return new Failure(pipelineStep, inputElement.toString(), exceptionElement.exception());
     }
 
     /**
      * Build a {@link fr.groupbees.asgarde.Failure} object from a generic input element and {@link java.lang.Throwable}.
      *
-     * @param element a T object
-     * @param exception a {@link java.lang.Throwable} object
-     * @param <T> a T class
+     * @param pipelineStep the current pipeline step
+     * @param element      a T object
+     * @param exception    a {@link java.lang.Throwable} object
+     * @param <T>          a T class
      * @return a {@link fr.groupbees.asgarde.Failure} object
      */
-    public static <T> Failure from(final T element, final Throwable exception) {
-        return new Failure(element.toString(), exception);
+    public static <T> Failure from(final String pipelineStep,
+                                   final T element,
+                                   final Throwable exception) {
+        return new Failure(pipelineStep, element.toString(), exception);
+    }
+
+    /**
+     * <p>Getter for the field <code>pipelineStep</code>.</p>
+     *
+     * @return a {@link java.lang.String} object
+     */
+    public String getPipelineStep() {
+        return pipelineStep;
     }
 
     /**
@@ -64,11 +82,14 @@ public class Failure implements Serializable {
         return exception;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String toString() {
         return "Failure{" +
-                "inputElement='" + inputElement + '\'' +
+                "pipelineStep='" + pipelineStep + '\'' +
+                ", inputElement='" + inputElement + '\'' +
                 ", exception=" + exception +
                 '}';
     }

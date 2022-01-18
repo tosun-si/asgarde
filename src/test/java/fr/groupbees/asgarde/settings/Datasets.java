@@ -3,8 +3,8 @@ package fr.groupbees.asgarde.settings;
 import avro.shaded.com.google.common.collect.ImmutableMap;
 import com.fasterxml.jackson.core.type.TypeReference;
 import fr.groupbees.asgarde.CollectionComposerTest;
-import lombok.*;
 import fr.groupbees.asgarde.Failure;
+import lombok.*;
 
 import java.io.Serializable;
 import java.util.List;
@@ -58,7 +58,11 @@ public class Datasets {
             .collect(toList());
 
     public static Failure toFailure(final Team team) {
-        return Failure.from(team, TEAMS_WITH_ERROR.get(team.getName()).get());
+        return Failure.from(
+                team.getName(),
+                team,
+                TEAMS_WITH_ERROR.get(team.getName()).get()
+        );
     }
 
     @Builder(toBuilder = true)

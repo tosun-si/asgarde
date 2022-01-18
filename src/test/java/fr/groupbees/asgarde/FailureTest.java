@@ -33,47 +33,54 @@ public class FailureTest {
         final String otherObjectAsString = otherObject.toString();
 
         return new Object[][]{
-                {avroObject, avroObjectAsString, avroException},
-                {otherObject, otherObjectAsString, otherObjectException}
+                {"Avro object error", avroObject, avroObjectAsString, avroException},
+                {"Other object error", otherObject, otherObjectAsString, otherObjectException}
         };
     }
 
     @Test
     @Parameters(method = "inputObjectAndExceptionParams")
     public <T> void givenObjectAndException_whenCreateFailureFromThem_thenFailureWithExpectedInputElementAndException(
+            final String pipelineStep,
             final T inputObject,
             final String inputObjectAsString,
             final Exception exception) {
 
         // When.
-        final Failure resultFailure = Failure.from(inputObject, exception);
+        final Failure resultFailure = Failure.from(pipelineStep, inputObject, exception);
 
         // Then.
-        assertResultFailure(resultFailure, inputObjectAsString, exception);
+        assertResultFailure(resultFailure, pipelineStep, inputObjectAsString, exception);
     }
 
     @Test
     @Parameters(method = "inputObjectAndExceptionParams")
     public <T> void givenObjectAndException_whenCreateFailureFromExceptionElement_thenFailureWithExpectedInputElementAndException(
+            final String pipelineStep,
             final T inputObject,
             final String inputObjectAsString,
             final Exception exception) {
 
         // When.
         final ExceptionElement<T> exceptionElement = ExceptionElement.of(inputObject, exception);
-        final Failure resultFailure = Failure.from(exceptionElement);
+        final Failure resultFailure = Failure.from(pipelineStep, exceptionElement);
 
         // Then.
-        assertResultFailure(resultFailure, inputObjectAsString, exception);
+        assertResultFailure(resultFailure, pipelineStep, inputObjectAsString, exception);
     }
 
     /**
      * Assert the given {@link Failure} object with expected input element as string and expected exception.
      */
     private <T> void assertResultFailure(final Failure resultFailure,
+                                         final String expectedPipelineStep,
                                          final String expectedInputElement,
                                          final Exception exceptedException) {
         assertThat(resultFailure).isNotNull();
+        assertThat(resultFailure.getPipelineStep())
+                .isNotNull()
+                .isNotEmpty()
+                .isEqualTo(expectedPipelineStep);
         assertThat(resultFailure.getInputElement())
                 .isNotNull()
                 .isNotEmpty()

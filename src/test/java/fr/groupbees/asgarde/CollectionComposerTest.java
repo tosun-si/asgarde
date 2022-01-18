@@ -40,6 +40,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.StreamSupport;
 
+import static fr.groupbees.asgarde.settings.Datasets.TeamNames.*;
 import static java.util.stream.Collectors.toList;
 import static org.apache.beam.sdk.values.TypeDescriptor.of;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,9 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @RunWith(JUnitParamsRunner.class)
 public class CollectionComposerTest implements Serializable {
 
-    private static final String MAP_TO_TEAM = "Map to team";
     private static final String MAP_TO_OTHER_TEAM = "Map to other team";
-    private static final String CONTEXT_TO_TEAM = "Process context to team";
     private static final String FLAT_MAP_TO_PLAYER = "Flat map to player";
     private static final String CONTEXT_TO_OTHER_TEAM = "Process context to other team";
     private static final String FILTER_TEAMS = "Filter teams";
@@ -67,7 +66,7 @@ public class CollectionComposerTest implements Serializable {
                                 .into(of(OtherTeam.class))
                                 .via(TestSettings::toOtherTeam)
                                 .exceptionsInto(of(Failure.class))
-                                .exceptionsVia(Failure::from))
+                                .exceptionsVia(exElt -> Failure.from(MAP_TO_OTHER_TEAM, exElt)))
                         .getResult();
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementsInternalErrorHandling =
@@ -118,7 +117,7 @@ public class CollectionComposerTest implements Serializable {
                                 .into(of(OtherTeam.class))
                                 .via(TestSettings::toOtherTeamWithException)
                                 .exceptionsInto(of(Failure.class))
-                                .exceptionsVia(Failure::from))
+                                .exceptionsVia(exElt -> Failure.from(MAP_TO_OTHER_TEAM, exElt)))
                         .getResult();
 
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementsInternalErrorHandling =
@@ -157,7 +156,7 @@ public class CollectionComposerTest implements Serializable {
                                 .into(of(Datasets.Player.class))
                                 .via(Team::getPlayers)
                                 .exceptionsInto(of(Failure.class))
-                                .exceptionsVia(Failure::from))
+                                .exceptionsVia(exElt -> Failure.from(FLAT_MAP_TO_PLAYER, exElt)))
                         .getResult();
 
         final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultMapElementsInternalErrorHandling =
@@ -182,7 +181,7 @@ public class CollectionComposerTest implements Serializable {
                                 .into(of(Datasets.Player.class))
                                 .via(TestSettings::toPlayersWithException)
                                 .exceptionsInto(of(Failure.class))
-                                .exceptionsVia(Failure::from))
+                                .exceptionsVia(exElt -> Failure.from(FLAT_MAP_TO_PLAYER, exElt)))
                         .getResult();
 
         final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultFlatMapElementsInternalErrorHandling =
@@ -305,7 +304,7 @@ public class CollectionComposerTest implements Serializable {
             final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultFunction) {
 
         // Given.
-        final List<Team> psgTeam = getTeamsByName(Datasets.TeamNames.PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
 
         // When.
@@ -328,7 +327,7 @@ public class CollectionComposerTest implements Serializable {
             final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultFunction) {
 
         // Given.
-        final List<Team> psgTeam = getTeamsByName(Datasets.TeamNames.PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
 
         // When.
@@ -350,7 +349,7 @@ public class CollectionComposerTest implements Serializable {
     public void givenOneTeam_whenApplyComposerWithOneFlatMapWithoutError_thenExpectedOutputPlayersAndNoFailure(
             final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultFunction) {
         // Given.
-        final List<Team> psgTeam = getTeamsByName(Datasets.TeamNames.PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
 
         // When.
@@ -378,7 +377,7 @@ public class CollectionComposerTest implements Serializable {
             final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultFunction) {
 
         // Given.
-        final List<Team> psgTeam = getTeamsByName(Datasets.TeamNames.PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
 
         // When.
@@ -403,7 +402,7 @@ public class CollectionComposerTest implements Serializable {
             final TypeDescriptor<T> outputDescriptor) {
 
         // Given.
-        final List<Team> psgTeam = getTeamsByName(Datasets.TeamNames.PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
 
         // When.
@@ -425,7 +424,7 @@ public class CollectionComposerTest implements Serializable {
     @Category(ValidatesRunner.class)
     public void givenOneTeams_whenApplyComposerWithMapProcessElementAndSideInput_thenOutputOtherTeamWithSideInputFieldAndNoFailure() {
         // Given.
-        final List<Team> psgTeam = getTeamsByName(Datasets.TeamNames.PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
         final String sideInputFieldValue = "Side input test";
 
@@ -460,9 +459,9 @@ public class CollectionComposerTest implements Serializable {
 
         // When.
         final Result<PCollection<Team>, Failure> result = CollectionComposer.of(teamCollection)
-                .apply(MAP_TO_TEAM, MapElements.into(of(Team.class)).via(this::toTeamWithScore))
-                .apply(CONTEXT_TO_TEAM, MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithProfit))
-                .apply(MAP_TO_TEAM + "fn", MapElementFn.into(of(Team.class)).via(this::toTeamWithNickName))
+                .apply(PSG.name(), MapElements.into(of(Team.class)).via(this::toTeamWithPsgError))
+                .apply(JUVENTUS.name(), MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithJuveError))
+                .apply(BAYERN.name(), MapElementFn.into(of(Team.class)).via(this::toTeamWithBayernError))
                 .getResult();
 
         final PCollection<Failure> failures = result.failures();
@@ -485,9 +484,9 @@ public class CollectionComposerTest implements Serializable {
 
         // When.
         final Result<PCollection<Team>, Failure> result = CollectionComposer.of(teamCollection)
-                .apply(MAP_TO_TEAM, MapElements.into(of(Team.class)).via(this::toTeamWithScore))
-                .apply(CONTEXT_TO_TEAM, MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithProfit))
-                .apply(MAP_TO_TEAM + "2", MapElementFn.into(of(Team.class)).via(this::toTeamWithNickName))
+                .apply(PSG.name(), MapElements.into(of(Team.class)).via(this::toTeamWithPsgError))
+                .apply(JUVENTUS.name(), MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithJuveError))
+                .apply(BAYERN.name(), MapElementFn.into(of(Team.class)).via(this::toTeamWithBayernError))
                 .apply(FILTER_TEAMS, FilterFn.by(this::isNotBarcelona))
                 .getResult();
 
@@ -511,14 +510,14 @@ public class CollectionComposerTest implements Serializable {
 
         // When.
         final Result<PCollection<Team>, Failure> result = CollectionComposer.of(teamCollection)
-                .apply(MAP_TO_TEAM,
+                .apply(PSG.name(),
                         MapElements
                                 .into(of(Team.class))
-                                .via(this::toTeamWithScore)
+                                .via(this::toTeamWithPsgError)
                                 .exceptionsInto(of(Failure.class))
-                                .exceptionsVia(Failure::from))
-                .apply(CONTEXT_TO_TEAM, MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithProfit))
-                .apply(MAP_TO_TEAM + "2", MapElementFn.into(of(Team.class)).via(this::toTeamWithNickName))
+                                .exceptionsVia(exElt -> Failure.from(PSG.name(), exElt)))
+                .apply(JUVENTUS.name(), MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithJuveError))
+                .apply(BAYERN.name(), MapElementFn.into(of(Team.class)).via(this::toTeamWithBayernError))
                 .apply(FILTER_TEAMS, FilterFn.by(this::isNotBarcelona))
                 .getResult();
 
@@ -539,7 +538,7 @@ public class CollectionComposerTest implements Serializable {
 
         // When.
         final Result<PCollection<Team>, Failure> result = CollectionComposer.of(teamCollection)
-                .apply(FILTER_TEAMS, FilterFn.by(this::simulateFilterErrorPsgTeam))
+                .apply(PSG.name(), FilterFn.by(this::simulateFilterErrorPsgTeam))
                 .getResult();
 
         final PCollection<Failure> failures = result.failures();
@@ -559,11 +558,11 @@ public class CollectionComposerTest implements Serializable {
 
         // When.
         final Result<PCollection<Datasets.Player>, Failure> result = CollectionComposer.of(teamCollection)
-                .apply(FLAT_MAP_TO_PLAYER, FlatMapElements
+                .apply(PSG.name(), FlatMapElements
                         .into(of(Datasets.Player.class))
                         .via(this::simulateFlatMapErrorPsgTeam)
                         .exceptionsInto(of(Failure.class))
-                        .exceptionsVia(Failure::from))
+                        .exceptionsVia(exElt -> Failure.from(PSG.name(), exElt)))
                 .getResult();
 
         final PCollection<Failure> failures = result.failures();
@@ -579,7 +578,7 @@ public class CollectionComposerTest implements Serializable {
     @Category(ValidatesRunner.class)
     public void givenOneTeam_whenApplyComposerWithOneFilterWithoutError_thenExpectedOutputTeamsAndNoFailure() {
         // Given.
-        final List<Team> psgTeam = getTeamsByName(Datasets.TeamNames.PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
 
         // When.
@@ -611,7 +610,7 @@ public class CollectionComposerTest implements Serializable {
         System.setOut(new PrintStream(outContent));
 
         // Given.
-        final List<Team> psgTeam = getTeamsByName(Datasets.TeamNames.PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
 
         // When.
@@ -637,19 +636,31 @@ public class CollectionComposerTest implements Serializable {
     }
 
     private boolean simulateFilterErrorPsgTeam(final Team team) {
-        applyCheckOnTeam(team, t -> !Datasets.TeamNames.PSG.toString().equals(t.getName()), Datasets.NO_AUTH_SCORE_PSG_EXCEPTION);
+        applyCheckOnTeam(
+                team,
+                t -> !PSG.toString().equals(t.getName()),
+                Datasets.NO_AUTH_SCORE_PSG_EXCEPTION
+        );
 
         return true;
     }
 
     private List<Datasets.Player> simulateFlatMapErrorPsgTeam(final Team team) {
-        applyCheckOnTeam(team, t -> !Datasets.TeamNames.PSG.toString().equals(t.getName()), Datasets.NO_AUTH_SCORE_PSG_EXCEPTION);
+        applyCheckOnTeam(
+                team,
+                t -> !PSG.toString().equals(t.getName()),
+                Datasets.NO_AUTH_SCORE_PSG_EXCEPTION
+        );
 
         return team.getPlayers();
     }
 
-    private Team toTeamWithScore(final Team team) {
-        applyCheckOnTeam(team, t -> !Datasets.TeamNames.PSG.toString().equals(t.getName()), Datasets.NO_AUTH_SCORE_PSG_EXCEPTION);
+    private Team toTeamWithPsgError(final Team team) {
+        applyCheckOnTeam(
+                team,
+                t -> !PSG.toString().equals(t.getName()),
+                Datasets.NO_AUTH_SCORE_PSG_EXCEPTION
+        );
 
         return team
                 .toBuilder()
@@ -657,8 +668,12 @@ public class CollectionComposerTest implements Serializable {
                 .build();
     }
 
-    private Team toTeamWithNickName(final Team team) {
-        applyCheckOnTeam(team, t -> !Datasets.TeamNames.BAYERN.toString().equals(t.getName()), Datasets.BAYERN_NOT_HAVE_NICKNAME_EXCEPTION);
+    private Team toTeamWithBayernError(final Team team) {
+        applyCheckOnTeam(
+                team,
+                t -> !Datasets.TeamNames.BAYERN.toString().equals(t.getName()),
+                Datasets.BAYERN_NOT_HAVE_NICKNAME_EXCEPTION
+        );
 
         return team
                 .toBuilder()
@@ -666,7 +681,7 @@ public class CollectionComposerTest implements Serializable {
                 .build();
     }
 
-    private Team toTeamWithProfit(final ProcessContext context) {
+    private Team toTeamWithJuveError(final ProcessContext context) {
         final Team team = (Team) context.element();
         applyCheckOnTeam(team, t -> !Datasets.TeamNames.JUVENTUS.toString().equals(t.getName()), Datasets.NO_AUTH_PROFIT_JUVE_EXCEPTION);
 
