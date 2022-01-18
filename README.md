@@ -13,6 +13,29 @@ This module allows error handling with Apache Beam.
 | 0.13.0       | 2.34.0      |
 | 0.14.0       | 2.35.0      |
 
+## Installation of project
+
+The project is hosted on Maven repository.\
+You can install it with all the build tools compatibles with Maven.
+
+Example with Maven and Gradle :
+
+#### Maven
+
+```xml
+<dependency>
+    <groupId>fr.groupbees</groupId>
+    <artifactId>asgarde</artifactId>
+    <version>0.14.0</version>
+</dependency>
+```
+
+#### Gradle
+
+```text
+implementation group: 'fr.groupbees', name: 'asgarde', version: '0.14.0'
+```
+
 ## Error logic with Beam ParDo and DoFn
 
 Beam recommends treating errors with Dead letters.
