@@ -3,6 +3,16 @@
 
 This module allows error handling with Apache Beam.
 
+## Versions compatibility between Beam and Asgarde
+
+| Asgarde      | Beam |
+| -----------  | ----------- |
+| 0.10.0       | 2.31.0      |
+| 0.11.0       | 2.32.0      |
+| 0.12.0       | 2.33.0      |
+| 0.13.0       | 2.34.0      |
+| 0.14.0       | 2.35.0      |
+
 ## Error logic with Beam ParDo and DoFn
 
 Beam recommends treating errors with Dead letters.
@@ -13,11 +23,14 @@ Beam suggests handling side outputs with `TupleTags` in a `DoFn` class, example 
 ```java
 // Failure object.
 public class Failure implements Serializable {
+    private final String pipelineStep;
     private Integer inputElement;
     private Throwable exception;
     
-    public static <T> Failure from(final T element, final Throwable exception) {
-        return new Failure(element.toString(), exception);
+    public static <T> Failure from(final String pipelineStep,
+                                   final T element, 
+                                   final Throwable exception) {
+        return new Failure(pipelineStep, element.toString(), exception);
     }
 }
 
@@ -34,7 +47,7 @@ public class WordCountFn extends DoFn<String, Integer> {
             final String word = ctx.element();
             ctx.output(1 / word.length());
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from(ctx.element(), throwable);
+            final Failure failure = Failure.from("step", ctx.element(), throwable);
             ctx.output(failuresTag, failure);
         }
     }
@@ -69,7 +82,7 @@ With this approach we can, in all steps, get the output and failures result PCol
 
 ## Error logic with Beam MapElements and FlatMapElements
 
-Beam also allows handling errors with built in components like `MapElements` and `FlatMapElements` (it's currently an experimental feature as of april of 2020).
+Beam also allows handling errors with built-in components like `MapElements` and `FlatMapElements` (it's currently an experimental feature as of april of 2020).
 
 Behind the scene, in these classes Beam use the same concept explained above.
 
@@ -80,8 +93,10 @@ public class Failure implements Serializable {
     private String inputElement;
     private Throwable exception;
 
-    public static <T> Failure from(final T element, final Throwable exception) {
-        return new Failure(element.toString(), exception);
+    public static <T> Failure from(final String pipelineStep,
+                                   final T element, 
+                                   final Throwable exception) {
+        return new Failure(pipelineStep, element.toString(), exception);
     }
 }
 
@@ -93,7 +108,7 @@ WithFailures.Result<PCollection<Integer>, Failure> result = wordPCollection
            .into(TypeDescriptors.integers())
            .via((String word) -> 1 / word.length())  // Could throw ArithmeticException
            .exceptionsInto(TypeDescriptor.of(Failure.class))
-           .exceptionsVia(Failure::from)
+           .exceptionsVia(exElt -> Failure.from("step", exElt))
    );
 
 PCollection<String> output = result.output();
@@ -110,7 +125,7 @@ WithFailures.Result<PCollection<String>, Failure>> result = wordPCollection
            .into(TypeDescriptors.strings())
            .via((String line) -> Arrays.asList(Arrays.copyOfRange(line.split(" "), 1, 5)))
            .exceptionsInto(TypeDescriptor.of(Failure.class))
-           .exceptionsVia(Failure::from)
+           .exceptionsVia(exElt -> Failure.from("step", exElt))
    )
 
 PCollection<String> output = result.output();
@@ -142,7 +157,7 @@ WithFailures.Result<PCollection<String>, Failure> result1 = input
                         .into(TypeDescriptors.strings())
                         .via((String word) -> word + "Test")
                         .exceptionsInto(TypeDescriptor.of(Failure.class))
-                        .exceptionsVia(Failure::from));
+                        .exceptionsVia(exElt -> Failure.from("step", exElt)));
 
 final PCollection<String> output1 = result1.output();
 final PCollection<Failure> failure1 = result1.failures();
@@ -152,7 +167,7 @@ WithFailures.Result<PCollection<String>, Failure> result2 = output1
                             .into(TypeDescriptors.strings())
                             .via((String line) -> Arrays.asList(Arrays.copyOfRange(line.split(" "), 1, 5)))
                             .exceptionsInto(TypeDescriptor.of(Failure.class))
-                            .exceptionsVia(Failure::from));
+                            .exceptionsVia(exElt -> Failure.from("step", exElt)));
 
 final PCollection<String> output2 = result1.output();
 final PCollection<Failure> failure2 = result1.failures();
@@ -406,7 +421,7 @@ final PCollection<Integer> resMapElements2 = CollectionComposer.of(input)
                 .into(TypeDescriptors.integers())
                 .via((String word) -> 1 / word.length())
                 .exceptionsInto(of(Failure.class))
-                .exceptionsVia(Failure::from))
+                .exceptionsVia(exElt -> Failure.from("step", exElt)))
         .getResult()
         .output();
 
@@ -415,7 +430,7 @@ final PCollection<String> resFlatMapElements2 = CollectionComposer.of(input)
                 .into(TypeDescriptors.strings())
                 .via((String line) -> Arrays.asList(Arrays.copyOfRange(line.split(" "), 1, 5)))
                 .exceptionsInto(of(Failure.class))
-                .exceptionsVia(Failure::from))
+                .exceptionsVia(exElt -> Failure.from("step", exElt)))
         .getResult()
         .output();
 ```
@@ -453,21 +468,28 @@ The Failure class exposes factory methods to build from inputs:
 
 ```java
 public class Failure implements Serializable {
-    private String inputElement;
-    private Throwable exception;
-    
-    private Failure(String inputElement, Throwable exception) {
+    private final String pipelineStep;
+    private final String inputElement;
+    private final Throwable exception;
+
+    private Failure(String pipelineStep,
+                    String inputElement,
+                    Throwable exception) {
+        this.pipelineStep = pipelineStep;
         this.inputElement = inputElement;
         this.exception = exception;
     }
 
-    public static <T> Failure from(final WithFailures.ExceptionElement<T> exceptionElement) {
+    public static <T> Failure from(final String pipelineStep,
+                                   final WithFailures.ExceptionElement<T> exceptionElement) {
         final T inputElement = exceptionElement.element();
-        return new Failure(inputElement.toString(), exceptionElement.exception());
+        return new Failure(pipelineStep, inputElement.toString(), exceptionElement.exception());
     }
     
-    public static <T> Failure from(final T element, final Throwable exception) {
-        return new Failure(element.toString(), exception);
+    public static <T> Failure from(final String pipelineStep,
+                                   final T element,
+                                   final Throwable exception) {
+        return new Failure(pipelineStep, element.toString(), exception);
     }
 }
 ```
@@ -544,7 +566,7 @@ public class WordStatsFn extends BaseElementFn<String, WordStats> {
         try {
             ctx.output(toWordStats(sideInputs, ctx));
         } catch (Throwable throwable) {
-            val failure = Failure.from(ctx.element(), throwable);
+            val failure = Failure.from("step", ctx.element(), throwable);
             ctx.output(failuresTag, failure);
         }
     }

@@ -66,7 +66,7 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
      * Factory method of class, that take the input type class.
      *
      * @param inputClass a {@link java.lang.Class} object
-     * @param <InputT> a InputT class
+     * @param <InputT>   a InputT class
      * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
      */
     public static <InputT> MapProcessContextFn<InputT, ?> from(final Class<InputT> inputClass) {
@@ -79,7 +79,7 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
     /**
      * Add the output type descriptors, it's required because it allows to add default coder for Output.
      *
-     * @param outputType a {@link org.apache.beam.sdk.values.TypeDescriptor} object
+     * @param outputType   a {@link org.apache.beam.sdk.values.TypeDescriptor} object
      * @param <NewOutputT> a NewOutputT class
      * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
      */
@@ -138,7 +138,7 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
         try {
             ctx.output(processContextMapper.apply(ctx));
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from(ctx.element(), throwable);
+            final Failure failure = Failure.from(pipelineStep, ctx.element(), throwable);
             ctx.output(failuresTag, failure);
         }
     }

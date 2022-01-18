@@ -13,7 +13,7 @@ import java.io.Serializable;
 import java.util.Collections;
 
 /**
- * This class allows to composes some transforms from an input {@link PCollection}.
+ * This class allows to compose some transforms from an input {@link PCollection}.
  *
  * <p>
  * The purpose of this class is to handle and centralize the eventual errors in a pipeline flow.
@@ -35,6 +35,7 @@ import java.util.Collections;
  * Finally a Result with output PCollection and failures PCollection is returned by the composition class :
  * From this, a {@link PCollection} of output T can be recovered and a {@link PCollection} of {@link Failure}
  * </p>
+ *
  * @param <T> the type of elements in Composer class
  */
 public class CollectionComposer<T> {
@@ -84,7 +85,11 @@ public class CollectionComposer<T> {
      */
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final MapElements<T, OutputT> mapElements) {
-        return apply(name, mapElements.exceptionsInto(TypeDescriptor.of(Failure.class)).exceptionsVia(Failure::from));
+        return apply(
+                name, mapElements
+                        .exceptionsInto(TypeDescriptor.of(Failure.class))
+                        .exceptionsVia(exceptionElement -> Failure.from(name, exceptionElement))
+        );
     }
 
     /**
@@ -113,7 +118,11 @@ public class CollectionComposer<T> {
      */
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final FlatMapElements<T, OutputT> flatMapElements) {
-        return apply(name, flatMapElements.exceptionsInto(TypeDescriptor.of(Failure.class)).exceptionsVia(Failure::from));
+        return apply(
+                name, flatMapElements
+                        .exceptionsInto(TypeDescriptor.of(Failure.class))
+                        .exceptionsVia(exceptionElement -> Failure.from(name, exceptionElement))
+        );
     }
 
     /**
@@ -129,14 +138,13 @@ public class CollectionComposer<T> {
      * <p>Example usage:</p>
      *
      * <pre>{@code
-     *     public static <T> Failure from(final WithFailures.ExceptionElement<T> exceptionElement) {
+     *     public static <T> Failure from(final String pipelineStep, final WithFailures.ExceptionElement<T> exceptionElement) {
      *         final T inputElement = exceptionElement.element();
      *         final String inputElementAsString = .....
      *
-     *         return Failure.builder()
-     *                 .inputElementStep(inputElementAsString)
-     *                 .exception(exceptionElement.exception())
-     *                 .build();
+     *         return Failure.from(pipelineStep,
+     *                             inputElementAsString,
+     *                             exceptionElement.exception())
      *     }
      *
      *     // Example with MapElements.
@@ -145,7 +153,7 @@ public class CollectionComposer<T> {
      *                         .into(TypeDescriptors.integers())
      *                         .via((String word) -> 1 / word.length())  // Could throw ArithmeticException
      *                         .exceptionsInto(TypeDescriptor.of(Failure.class))
-     *                         .exceptionsVia(Failure::from)
+     *                         .exceptionsVia(excElement -> Failure.from(name, excElement))
      *              )
      *              .getResult();
      *
@@ -155,7 +163,7 @@ public class CollectionComposer<T> {
      *                              .into(TypeDescriptors.strings())
      *                              .via((String line) -> Arrays.asList(Arrays.copyOfRange(line.split(" "), 1, 5)))
      *                              .exceptionsInto(TypeDescriptor.of(Failure.class))
-     *                              .exceptionsVia(Failure::from)
+     *                              .exceptionsVia(excElement -> Failure.from(name, excElement))
      *              )
      *              .getResult();
      *
@@ -207,6 +215,8 @@ public class CollectionComposer<T> {
      */
     public CollectionComposer<T> apply(final String name,
                                        final FilterFn<T> doFn) {
+        doFn.setPipelineStep(name);
+
         final PCollectionTuple tuple = outputPCollection.apply(name,
                 ParDo.of(doFn).withOutputTags(doFn.getOutputTag(), TupleTagList.of(doFn.getFailuresTag())));
 
@@ -270,6 +280,8 @@ public class CollectionComposer<T> {
     public <OutputT extends Serializable> CollectionComposer<OutputT> apply(final String name,
                                                                             final BaseElementFn<T, OutputT> doFn,
                                                                             final Iterable<? extends PCollectionView<?>> sideInputs) {
+        doFn.setPipelineStep(name);
+
         final PCollectionTuple tuple = outputPCollection.apply(name,
                 ParDo.of(doFn)
                         .withOutputTags(doFn.getOutputTag(), TupleTagList.of(doFn.getFailuresTag()))
