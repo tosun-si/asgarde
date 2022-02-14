@@ -1,4 +1,3 @@
-
 # Asgarde
 
 This module allows error handling with Apache Beam.
@@ -12,6 +11,7 @@ This module allows error handling with Apache Beam.
 | 0.12.0       | 2.33.0      |
 | 0.13.0       | 2.34.0      |
 | 0.14.0       | 2.35.0      |
+| 0.15.0       | 2.36.0      |
 
 ## Installation of project
 
@@ -38,7 +38,7 @@ implementation group: 'fr.groupbees', name: 'asgarde', version: '0.14.0'
 
 ## Error logic with Beam ParDo and DoFn
 
-Beam recommends treating errors with Dead letters.
+Beam recommends treating errors with Dead letters.\
 It means catching errors in the flow and, using side outputs, sinking errors to a file, database or any other output...
 
 Beam suggests handling side outputs with `TupleTags` in a `DoFn` class, example :
@@ -47,11 +47,11 @@ Beam suggests handling side outputs with `TupleTags` in a `DoFn` class, example 
 // Failure object.
 public class Failure implements Serializable {
     private final String pipelineStep;
-    private Integer inputElement;
-    private Throwable exception;
-    
+    private final Integer inputElement;
+    private final Throwable exception;
+
     public static <T> Failure from(final String pipelineStep,
-                                   final T element, 
+                                   final T element,
                                    final Throwable exception) {
         return new Failure(pipelineStep, element.toString(), exception);
     }
@@ -113,11 +113,12 @@ Example:
 
 ```java
 public class Failure implements Serializable {
-    private String inputElement;
-    private Throwable exception;
+    private final String pipelineStep;
+    private final String inputElement;
+    private final Throwable exception;
 
     public static <T> Failure from(final String pipelineStep,
-                                   final T element, 
+                                   final T element,
                                    final Throwable exception) {
         return new Failure(pipelineStep, element.toString(), exception);
     }
@@ -566,7 +567,7 @@ final PCollection<String> resFilterFn = CollectionComposer.of(input)
 ```
 
 * Custom non-generic `DoFn` classes are also supported, they must extend the `BaseElementFn` (it initializes the tuple tags logic) 
-and the type descriptors will be deduced from non generic types:
+and the type descriptors will be deduced from non-generic types:
 
 ```java
 final PCollection<WordStats> resCustomDoFn = CollectionComposer.of(input)
@@ -611,6 +612,351 @@ final PCollection<String> output = resultComposer.output();
 final PCollection<Failure> failures = resultComposer.failures();
 ```
 
+## Asgarde with Kotlin
+
+`Apache Beam Java` can be used with `Kotlin`, and it's make the experience more enjoyable.
+
+`Asgarde` proposes also `Kotlin` extensions to use `CollectionComposer` class with more expressive/concise code and with
+functional programming style.
+
+> :warning: **Kotlin Asgarde is proposed from 0.15.0 and Beam 2.36.0 versions**
+
+Let's take a previous example of `Asgarde Java` pipeline with error handling :
+
+```java
+final WithFailures.Result<PCollection<Integer>, Failure> resultComposer = CollectionComposer.of(input)
+        .apply("Map", MapElements.into(TypeDescriptors.strings()).via((String word)-> word + "Test"))
+        .apply("FlatMap", FlatMapElements
+                          .into(TypeDescriptors.strings())
+                          .via((String line) -> Arrays.asList(Arrays.copyOfRange(line.split(" "), 1, 5))))
+        .apply("ParDo", MapElementFn.into(TypeDescriptors.integers()).via(word -> 1/word.length()))
+        .getResult();
+```
+
+In `Asgarde Kotlin` the same pipeline is :
+
+```kotlin
+val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(words)
+    .map("Map") { word -> word + "Test" }
+    .flatMap("FlatMap") { Arrays.asList(*Arrays.copyOfRange(it.split(" ").toTypedArray(), 1, 5)) }
+    .mapFn("ParDo", { word -> 1 / word.length })
+    .result
+```
+
+The Kotlin code of `Asgarde` uses `extensions`, this feature is great because we can mix native `Asgarde` code with 
+functions dedicated to Kotlin, example : 
+
+```kotlin
+val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(words)
+    .apply("Map", MapElements.into(TypeDescriptors.strings()).via(SerializableFunction { String word -> word + "Test" })
+    .flatMap("FlatMap") { Arrays.asList(*Arrays.copyOfRange(it.split(" ").toTypedArray(), 1, 5)) }
+    .mapFn("ParDo", { word -> 1 / word.length })
+    .result
+```
+
+In this case, the first `map` function has been replaced by native `apply` function with `MapElements`\
+The type of `lambda expression` in `via` function needs to be specified in `Kotlin`, because it can take `ProcessFunction` 
+or `SerializableFunction` and there is an ambiguity (`SerializableFunction` is used in this example).
+
+
+### Extension for MapElements
+
+`Asgarde Java` :
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", MapElements.into(TypeDescriptor.of(OtherTeam.class)).via(team -> TestSettings.toOtherTeam(team)))
+        .getResult();
+```
+
+With method reference
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", MapElements.into(TypeDescriptor.of(OtherTeam.class)).via(TestSettings::toOtherTeam))
+        .getResult();
+```
+
+`Asgarde Kotlin` :
+
+```kotlin
+CollectionComposer.of(teams)
+    .map("Step name") { team -> TestSettings.toOtherTeam(team) }
+    .result
+```
+
+With `Kotlin` `it`
+
+```kotlin
+CollectionComposer.of(teams)
+    .map("Step name") { TestSettings.toOtherTeam(it) }
+    .result
+```
+
+The `Kotlin` version takes only a lambda type in the inline function, 
+`Kotlin` recommends writing the lambda in a separated parenthesis.
+
+### Extension for FlatMapElements
+
+`Asgarde Java` :
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", FlatMapElements.into(of(Player.class)).via(team -> team.getPlayers()))
+        .getResult();
+```
+
+With method reference
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", FlatMapElements.into(of(Player.class)).via(Team::getPlayers))
+        .getResult();
+```
+
+`Asgarde Kotlin` :
+
+```kotlin
+CollectionComposer.of(teams)
+    .flatMap("Step name") { team -> team.players }
+    .result
+```
+
+With `Kotlin` `it`
+
+```kotlin
+CollectionComposer.of(teams)
+    .flatMap("Step name") { it.players }
+    .result
+```
+
+### Extension for MapElement with failure
+
+`Asgarde Java` :
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", MapElements
+                            .into(of(Team.class))
+                            .via(team -> toTeamWithPsgError(team))
+                            .exceptionsInto(of(Failure.class))
+                            .exceptionsVia(exElt -> Failure.from("Step name", exElt)))
+        .getResult();
+```
+
+With method reference
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", MapElements
+                            .into(of(Team.class))
+                            .via(this::toTeamWithPsgError)
+                            .exceptionsInto(of(Failure.class))
+                            .exceptionsVia(exElt -> Failure.from("Step name", exElt)))
+        .getResult();
+```
+
+`Asgarde Kotlin` :
+
+```kotlin
+CollectionComposer.of(teamCollection)
+    .mapWithFailure(
+      "Step name",
+      { team -> toTeamWithPsgError(team) },
+      { exElt -> Failure.from("Step name", exElt) }
+    )
+```
+
+With `Kotlin` `it`
+
+```kotlin
+CollectionComposer.of(teamCollection)
+    .mapWithFailure(
+      "Step name",
+      { toTeamWithPsgError(it) },
+      { Failure.from("Step name", it) }
+    )
+```
+
+### Extension for FlatMapElement with failure
+
+`Asgarde Java` :
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", FlatMapElements
+                            .into(of(Player.class))
+                            .via(team -> simulateFlatMapErrorPsgTeam(team))
+                            .exceptionsInto(of(Failure.class))
+                            .exceptionsVia(exElt -> Failure.from("Step name", exElt)))
+        .getResult();
+```
+
+With method reference
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", FlatMapElements
+                            .into(of(Player.class))
+                            .via(this::simulateFlatMapErrorPsgTeam)
+                            .exceptionsInto(of(Failure.class))
+                            .exceptionsVia(exElt -> Failure.from("Step name", exElt)))
+        .getResult();
+```
+
+`Asgarde Kotlin` :
+
+```kotlin
+CollectionComposer.of(teamCollection)
+    .flatMapWithFailure(
+      "Step name",
+      { team -> simulateFlatMapErrorPsgTeam(team) },
+      { exElt -> Failure.from("Step name", exElt) }
+    )
+    .result
+```
+
+With `Kotlin` `it`
+
+```kotlin
+CollectionComposer.of(teamCollection)
+    .flatMapWithFailure(
+      "Step name",
+      { simulateFlatMapErrorPsgTeam(it) },
+      { Failure.from("Step name", it) }
+    )
+    .result
+```
+
+
+### Extension for MapElementFn
+
+`Asgarde Java` :
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", MapElementFn
+                              .into(of(OtherTeam.class))
+                              .via(team -> TestSettings.toOtherTeam(team))
+                              .withSetupAction(() -> System.out.print("Test")))
+        .getResult();
+```
+
+With method reference
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", MapElementFn
+                                  .into(of(OtherTeam.class))
+                                  .via(TestSettings::toOtherTeam)
+                                  .withSetupAction(() -> System.out.print("Test")))
+        .getResult();
+```
+
+`Asgarde Kotlin` :
+
+```kotlin
+CollectionComposer.of(teams)
+      .mapFn("Step name",
+        { team -> TestSettings.toOtherTeam(team) },
+        setupAction = { print("Test") }
+      )
+      .result
+```
+
+With `Kotlin` `it`
+
+```kotlin
+CollectionComposer.of(teams)
+    .mapFn("Step name",
+      { TestSettings.toOtherTeam(it) },
+      setupAction = { print("Test") }
+    )
+    .result
+```
+
+### Extension for MapProcessContextFn
+
+`Asgarde Java` :
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", MapProcessContextFn
+                              .from(Team.class)
+                              .into(of(OtherTeam.class))
+                              .via(ctx -> TestSettings.toOtherTeam(ctx))
+                              .withSetupAction(() -> System.out.print("Test")))
+        .getResult();
+```
+
+With method reference
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", MapProcessContextFn
+                            .from(Team.class)
+                            .into(of(OtherTeam.class))
+                            .via(TestSettings::toOtherTeam)
+                            .withSetupAction(() -> System.out.print("Test")))
+        .getResult();
+```
+
+`Asgarde Kotlin` :
+
+```kotlin
+CollectionComposer.of(teams)
+    .mapFnWithContext("Step name",
+      { ctx: DoFn<Team, OtherTeam>.ProcessContext -> TestSettings.toOtherTeam(ctx) },
+      setupAction =  { print("Test") }
+    )
+    .result
+```
+
+With `Kotlin` `it`
+
+```kotlin
+CollectionComposer.of(teams)
+    .mapFnWithContext<Team, OtherTeam>("Step name",
+      { TestSettings.toOtherTeam(it) },
+      setupAction =  { print("Test") }
+    )
+    .result
+```
+
+
+### Extension for FilterFn
+
+`Asgarde Java` :
+
+```java
+ CollectionComposer.of(teamCollection)
+        .apply("Step name", FilterFn.by(team -> simulateFilterErrorPsgTeam(team)))
+        .getResult();
+```
+
+With method reference
+
+```java
+ CollectionComposer.of(teamCollection)
+        .apply("Step name", FilterFn.by(this::simulateFilterErrorPsgTeam))
+        .getResult();
+```
+
+`Asgarde Kotlin` :
+
+```kotlin
+CollectionComposer.of(teamCollection)
+    .filter("Step name") { team -> simulateFilterErrorPsgTeam(team) }
+    .result
+```
+
+With `Kotlin` `it`
+
+```kotlin
+CollectionComposer.of(teamCollection)
+    .filter("Step name") { simulateFilterErrorPsgTeam(it) }
+    .result
+```
 
 ## Possible evolutions in the future
 

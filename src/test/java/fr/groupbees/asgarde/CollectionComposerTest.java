@@ -662,10 +662,10 @@ public class CollectionComposerTest implements Serializable {
                 Datasets.NO_AUTH_SCORE_PSG_EXCEPTION
         );
 
-        return team
-                .toBuilder()
-                .score(5)
-                .build();
+        final Team copiedTeam = team.copy();
+        copiedTeam.setScore(5);
+
+        return copiedTeam;
     }
 
     private Team toTeamWithBayernError(final Team team) {
@@ -675,20 +675,20 @@ public class CollectionComposerTest implements Serializable {
                 Datasets.BAYERN_NOT_HAVE_NICKNAME_EXCEPTION
         );
 
-        return team
-                .toBuilder()
-                .nickName("Nick name " + team.getName())
-                .build();
+        final Team copiedTeam = team.copy();
+        copiedTeam.setNickName("Nick name " + team.getName());
+
+        return copiedTeam;
     }
 
     private Team toTeamWithJuveError(final ProcessContext context) {
         final Team team = (Team) context.element();
         applyCheckOnTeam(team, t -> !Datasets.TeamNames.JUVENTUS.toString().equals(t.getName()), Datasets.NO_AUTH_PROFIT_JUVE_EXCEPTION);
 
-        return team
-                .toBuilder()
-                .profit(10)
-                .build();
+        final Team copiedTeam = team.copy();
+        copiedTeam.setProfit(10);
+
+        return copiedTeam;
     }
 
     private Void assertFailures(final Iterable<Failure> failures,
