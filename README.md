@@ -655,8 +655,9 @@ val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(words)
 ```
 
 In this case, the first `map` function has been replaced by native `apply` function with `MapElements`\
-The type of `lambda expression` in `via` function needs to be specified in `Kotlin`, because it can take `ProcessFunction` 
-or `SerializableFunction` and there is an ambiguity (`SerializableFunction` is used in this example).
+The type of `lambda expression` in `via` function needs to be specified in `Kotlin`, because this can take `ProcessFunction` 
+or `SerializableFunction`.\
+This causes an ambiguity (`SerializableFunction` is used in this example).
 
 
 ### Extension for MapElements
