@@ -636,6 +636,8 @@ final WithFailures.Result<PCollection<Integer>, Failure> resultComposer = Collec
 In `Asgarde Kotlin` the same pipeline is :
 
 ```kotlin
+import fr.groupbees.asgarde.*
+
 val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(words)
     .map("Map") { word -> word + "Test" }
     .flatMap("FlatMap") { Arrays.asList(*Arrays.copyOfRange(it.split(" ").toTypedArray(), 1, 5)) }
@@ -643,7 +645,14 @@ val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(words)
     .result
 ```
 
-The Kotlin code of `Asgarde` uses `extensions`, this feature is great because we can mix native `Asgarde` code with 
+The Kotlin code of `Asgarde` uses `extensions`.\
+To use these extensions, the following `import` must be added :
+
+```kotlin
+import fr.groupbees.asgarde.*
+```
+
+This feature is great because we can mix native `Asgarde` code with 
 functions dedicated to Kotlin, example : 
 
 ```kotlin
@@ -659,6 +668,8 @@ The type of `lambda expression` in `via` function needs to be specified in `Kotl
 or `SerializableFunction`.\
 This causes an ambiguity (`SerializableFunction` is used in this example).
 
+
+In the following sections, all `Asgarde` native components and their equivalents in `Kotlin` are proposed.
 
 ### Extension for MapElements
 
