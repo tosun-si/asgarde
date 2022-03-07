@@ -118,9 +118,9 @@ public class Failure implements Serializable {
     private final Throwable exception;
 
     public static <T> Failure from(final String pipelineStep,
-                                   final T element,
-                                   final Throwable exception) {
-        return new Failure(pipelineStep, element.toString(), exception);
+                                   final WithFailures.ExceptionElement<T> exceptionElement) {
+        final T inputElement = exceptionElement.element();
+        return new Failure(pipelineStep, inputElement.toString(), exceptionElement.exception());
     }
 }
 
@@ -570,10 +570,12 @@ final PCollection<String> resFilterFn = CollectionComposer.of(input)
 and the type descriptors will be deduced from non-generic types:
 
 ```java
-final PCollection<WordStats> resCustomDoFn = CollectionComposer.of(input)
-            .apply("PaDo", new WordStatsFn(sideInputs), Collections.singleton(sideInputs))
-            .getResult()
-            .output();
+import fr.groupbees.asgarde.Failure;
+
+final PCollection<WordStats> resCustomDoFn=CollectionComposer.of(input)
+        .apply("PaDo",new WordStatsFn(sideInputs),Collections.singleton(sideInputs))
+        .getResult()
+        .output();
 
 // Custom DoFn class.
 public class WordStatsFn extends BaseElementFn<String, WordStats> {
@@ -583,6 +585,8 @@ public class WordStatsFn extends BaseElementFn<String, WordStats> {
     public WordStatsFn(final PCollectionView<String> sideInputs) {
         // Do not forget to call this!
         super();
+
+        this.sideInputs = sideInputs
     }
 
     @ProcessElement
@@ -590,7 +594,7 @@ public class WordStatsFn extends BaseElementFn<String, WordStats> {
         try {
             ctx.output(toWordStats(sideInputs, ctx));
         } catch (Throwable throwable) {
-            val failure = Failure.from("step", ctx.element(), throwable);
+            final Failure failure = Failure.from("step", ctx.element(), throwable);
             ctx.output(failuresTag, failure);
         }
     }
