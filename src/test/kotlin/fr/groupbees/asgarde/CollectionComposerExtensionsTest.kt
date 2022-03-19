@@ -4,8 +4,6 @@ import fr.groupbees.asgarde.settings.*
 import fr.groupbees.asgarde.settings.Datasets.*
 import fr.groupbees.asgarde.settings.TestSettings.assertOtherTeamWithSideInputField
 import fr.groupbees.asgarde.settings.TestSettings.toOtherTeamWithSideInputField
-import fr.groupbees.asgarde.transforms.MapElementFn
-import fr.groupbees.asgarde.transforms.MapProcessContextFn
 import junitparams.JUnitParamsRunner
 import junitparams.Parameters
 import org.apache.beam.sdk.coders.Coder
@@ -142,7 +140,7 @@ class CollectionComposerExtensionsTest : Serializable {
      * Contains all the params to test the result with all the FlaMapElement functions without error.
      */
     fun resultCorrectFlatMapElementsParams(): Array<Any> {
-        val resultMapElements = { teams: PCollection<Team> ->
+        val resultFlatMapElements = { teams: PCollection<Team> ->
             CollectionComposer.of(teams)
                 .flatMapWithFailure(FLAT_MAP_TO_PLAYER,
                     { obj: Team -> obj.players },
@@ -151,14 +149,29 @@ class CollectionComposerExtensionsTest : Serializable {
                 .result
         }
 
-        val resultMapElementsInternalErrorHandling = { teams: PCollection<Team> ->
+        val resultFlatMapElementsInternalErrorHandling = { teams: PCollection<Team> ->
             CollectionComposer.of(teams)
                 .flatMap(FLAT_MAP_TO_PLAYER) { it.players }
                 .result
         }
+
+        val resultFlatMapElementsFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFn(FLAT_MAP_TO_PLAYER, { it.players })
+                .result
+        }
+
+        val resultFlatMapProcessElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFnWithContext<Team, Player>(FLAT_MAP_TO_PLAYER, { it.element().players })
+                .result
+        }
+
         return arrayOf(
-            arrayOf(resultMapElements),
-            arrayOf(resultMapElementsInternalErrorHandling)
+            arrayOf(resultFlatMapElements),
+            arrayOf(resultFlatMapElementsInternalErrorHandling),
+            arrayOf(resultFlatMapElementsFn),
+            arrayOf(resultFlatMapProcessElementFn)
         )
     }
 
@@ -177,13 +190,29 @@ class CollectionComposerExtensionsTest : Serializable {
 
         val resultFlatMapElementsInternalErrorHandling = { teams: PCollection<Team> ->
             CollectionComposer.of(teams)
-                .flatMap(FLAT_MAP_TO_PLAYER) { team: Team -> TestSettings.toPlayersWithException(team) }
+                .flatMap(FLAT_MAP_TO_PLAYER) { TestSettings.toPlayersWithException(it) }
+                .result
+        }
+
+        val resultFlatMapElementsFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFn(FLAT_MAP_TO_PLAYER, { TestSettings.toPlayersWithException(it) })
+                .result
+        }
+
+        val resultFlatMapProcessContextFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFnWithContext<Team, Player>(
+                    FLAT_MAP_TO_PLAYER,
+                    { TestSettings.toPlayersWithException(it.element()) })
                 .result
         }
 
         return arrayOf(
             arrayOf(resultFlatMapElements),
-            arrayOf(resultFlatMapElementsInternalErrorHandling)
+            arrayOf(resultFlatMapElementsInternalErrorHandling),
+            arrayOf(resultFlatMapElementsFn),
+            arrayOf(resultFlatMapProcessContextFn)
         )
     }
 
@@ -248,12 +277,7 @@ class CollectionComposerExtensionsTest : Serializable {
         )
     }
 
-    /**
-     * Contains all the params for the custom DoFn, [MapElementFn] and [MapProcessContextFn]
-     * with start action.
-     * In this case we can check if the action was correctly executed
-     */
-    fun resultMapElementFnWithSetupActionParams(): Array<Any> {
+    fun resultOperationsWithSetupActionParams(): Array<Any> {
         val consoleMessageMapElementFn = "Test start action MapElementFn"
         val resultMapElementFn = { teams: PCollection<Team> ->
             CollectionComposer.of(teams)
@@ -265,12 +289,31 @@ class CollectionComposerExtensionsTest : Serializable {
         }
 
         val consoleMessageMapProcessElementFn = "Test start action MapProcessContextFn"
-
         val resultMapProcessElementFn = { teams: PCollection<Team> ->
             CollectionComposer.of(teams)
                 .mapFnWithContext<Team, OtherTeam>(MAP_TO_OTHER_TEAM,
                     { TestSettings.toOtherTeam(it.element()) },
-                    setupAction =  { print(consoleMessageMapProcessElementFn) }
+                    setupAction = { print(consoleMessageMapProcessElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageFlatMapElementFn = "Test start action FlatMapElementFn"
+        val resultFlatMapElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFn(FLAT_MAP_TO_PLAYER,
+                    { it.players },
+                    setupAction = { print(consoleMessageFlatMapElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageFlatMapProcessElementFn = "Test start action FlatMapProcessContextFn"
+        val resultFlatMapProcessElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFnWithContext<Team, Player>(FLAT_MAP_TO_PLAYER,
+                    { it.element().players },
+                    setupAction = { print(consoleMessageFlatMapProcessElementFn) }
                 )
                 .result
         }
@@ -282,6 +325,186 @@ class CollectionComposerExtensionsTest : Serializable {
             ), arrayOf(
                 resultMapProcessElementFn,
                 consoleMessageMapProcessElementFn
+            ), arrayOf(
+                resultFlatMapElementFn,
+                consoleMessageFlatMapElementFn
+            ), arrayOf(
+                resultFlatMapProcessElementFn,
+                consoleMessageFlatMapProcessElementFn
+            )
+        )
+    }
+
+    fun resultOperationsWithStartBundleActionParams(): Array<Any> {
+        val consoleMessageMapElementFn = "Test start bundle action MapElementFn"
+        val resultMapElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .mapFn(MAP_TO_OTHER_TEAM,
+                    { team -> TestSettings.toOtherTeam(team) },
+                    startBundleAction = { print(consoleMessageMapElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageMapProcessElementFn = "Test start bundle action MapProcessContextFn"
+        val resultMapProcessElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .mapFnWithContext<Team, OtherTeam>(MAP_TO_OTHER_TEAM,
+                    { TestSettings.toOtherTeam(it.element()) },
+                    startBundleAction = { print(consoleMessageMapProcessElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageFlatMapElementFn = "Test start bundle action FlatMapElementFn"
+        val resultFlatMapElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFn(FLAT_MAP_TO_PLAYER,
+                    { it.players },
+                    startBundleAction = { print(consoleMessageFlatMapElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageFlatMapProcessElementFn = "Test start bundle action FlatMapProcessContextFn"
+        val resultFlatMapProcessElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFnWithContext<Team, Player>(FLAT_MAP_TO_PLAYER,
+                    { it.element().players },
+                    startBundleAction = { print(consoleMessageFlatMapProcessElementFn) }
+                )
+                .result
+        }
+
+        return arrayOf(
+            arrayOf(
+                resultMapElementFn,
+                consoleMessageMapElementFn
+            ), arrayOf(
+                resultMapProcessElementFn,
+                consoleMessageMapProcessElementFn
+            ), arrayOf(
+                resultFlatMapElementFn,
+                consoleMessageFlatMapElementFn
+            ), arrayOf(
+                resultFlatMapProcessElementFn,
+                consoleMessageFlatMapProcessElementFn
+            )
+        )
+    }
+
+    fun resultOperationsWithFinishBundleActionParams(): Array<Any> {
+        val consoleMessageMapElementFn = "Test finish bundle action MapElementFn"
+        val resultMapElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .mapFn(MAP_TO_OTHER_TEAM,
+                    { team -> TestSettings.toOtherTeam(team) },
+                    finishBundleAction = { print(consoleMessageMapElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageMapProcessElementFn = "Test finish bundle action MapProcessContextFn"
+        val resultMapProcessElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .mapFnWithContext<Team, OtherTeam>(MAP_TO_OTHER_TEAM,
+                    { TestSettings.toOtherTeam(it.element()) },
+                    finishBundleAction = { print(consoleMessageMapProcessElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageFlatMapElementFn = "Test finish bundle action FlatMapElementFn"
+        val resultFlatMapElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFn(FLAT_MAP_TO_PLAYER,
+                    { it.players },
+                    finishBundleAction = { print(consoleMessageFlatMapElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageFlatMapProcessElementFn = "Test finish bundle action FlatMapProcessContextFn"
+        val resultFlatMapProcessElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFnWithContext<Team, Player>(FLAT_MAP_TO_PLAYER,
+                    { it.element().players },
+                    finishBundleAction = { print(consoleMessageFlatMapProcessElementFn) }
+                )
+                .result
+        }
+
+        return arrayOf(
+            arrayOf(
+                resultMapElementFn,
+                consoleMessageMapElementFn
+            ), arrayOf(
+                resultMapProcessElementFn,
+                consoleMessageMapProcessElementFn
+            ), arrayOf(
+                resultFlatMapElementFn,
+                consoleMessageFlatMapElementFn
+            ), arrayOf(
+                resultFlatMapProcessElementFn,
+                consoleMessageFlatMapProcessElementFn
+            )
+        )
+    }
+
+    fun resultOperationsWithTeardownActionParams(): Array<Any> {
+        val consoleMessageMapElementFn = "Test teardown action MapElementFn"
+        val resultMapElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .mapFn(MAP_TO_OTHER_TEAM,
+                    { team -> TestSettings.toOtherTeam(team) },
+                    teardownAction = { print(consoleMessageMapElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageMapProcessElementFn = "Test teardown action MapProcessContextFn"
+        val resultMapProcessElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .mapFnWithContext<Team, OtherTeam>(MAP_TO_OTHER_TEAM,
+                    { TestSettings.toOtherTeam(it.element()) },
+                    teardownAction = { print(consoleMessageMapProcessElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageFlatMapElementFn = "Test teardown action FlatMapElementFn"
+        val resultFlatMapElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFn(FLAT_MAP_TO_PLAYER,
+                    { it.players },
+                    teardownAction = { print(consoleMessageFlatMapElementFn) }
+                )
+                .result
+        }
+
+        val consoleMessageFlatMapProcessElementFn = "Test teardown action FlatMapProcessContextFn"
+        val resultFlatMapProcessElementFn = { teams: PCollection<Team> ->
+            CollectionComposer.of(teams)
+                .flatMapFnWithContext<Team, Player>(FLAT_MAP_TO_PLAYER,
+                    { it.element().players },
+                    teardownAction = { print(consoleMessageFlatMapProcessElementFn) }
+                )
+                .result
+        }
+
+        return arrayOf(
+            arrayOf(
+                resultMapElementFn,
+                consoleMessageMapElementFn
+            ), arrayOf(
+                resultMapProcessElementFn,
+                consoleMessageMapProcessElementFn
+            ), arrayOf(
+                resultFlatMapElementFn,
+                consoleMessageFlatMapElementFn
+            ), arrayOf(
+                resultFlatMapProcessElementFn,
+                consoleMessageFlatMapProcessElementFn
             )
         )
     }
@@ -613,31 +836,42 @@ class CollectionComposerExtensionsTest : Serializable {
 
     @Test
     @Category(ValidatesRunner::class)
-    @Parameters(method = "resultMapElementFnWithSetupActionParams")
+    @Parameters(method = "resultOperationsWithSetupActionParams")
     fun givenOneTeam_whenApplyComposerWithMapFnWithSetupAction_thenActionIsCorrectlyExecuted(
         resultFunction: (PCollection<Team>) -> Result<PCollection<OtherTeam>, Failure>,
         setupActionExpectedMessageConsole: String
     ) {
+        testLifecycleActionInPipeline(resultFunction, setupActionExpectedMessageConsole)
+    }
 
-        // Allows testing side effect withSetupAction.
-        // We perform a System.out.print and checks if the message has been correctly printed in the console.
-        val outContent = ByteArrayOutputStream()
-        val originalOut = System.out
-        System.setOut(PrintStream(outContent))
+    @Test
+    @Category(ValidatesRunner::class)
+    @Parameters(method = "resultOperationsWithStartBundleActionParams")
+    fun givenOneTeam_whenApplyComposerWithMapFnWithStartBundleAction_thenActionIsCorrectlyExecuted(
+        resultFunction: (PCollection<Team>) -> Result<PCollection<OtherTeam>, Failure>,
+        startBundleActionExpectedMessageConsole: String
+    ) {
+        testLifecycleActionInPipeline(resultFunction, startBundleActionExpectedMessageConsole)
+    }
 
-        // Given.
-        val psgTeam = getTeamsByName(TeamNames.PSG, INPUT_TEAMS_NO_FAILURE)
-        val teamCollection = pipeline.apply("Reads people", Create.of(psgTeam))
+    @Test
+    @Category(ValidatesRunner::class)
+    @Parameters(method = "resultOperationsWithFinishBundleActionParams")
+    fun givenOneTeam_whenApplyComposerWithMapFnWithFinishBundleAction_thenActionIsCorrectlyExecuted(
+        resultFunction: (PCollection<Team>) -> Result<PCollection<OtherTeam>, Failure>,
+        finishBundleActionExpectedMessageConsole: String
+    ) {
+        testLifecycleActionInPipeline(resultFunction, finishBundleActionExpectedMessageConsole)
+    }
 
-        // When.
-        resultFunction(teamCollection)
-        pipeline.run().waitUntilFinish()
-
-        // Then.
-        assertThat(outContent.toString()).isEqualTo(setupActionExpectedMessageConsole)
-
-        // Adds the original out at the end of test.
-        System.setOut(originalOut)
+    @Test
+    @Category(ValidatesRunner::class)
+    @Parameters(method = "resultOperationsWithTeardownActionParams")
+    fun givenOneTeam_whenApplyComposerWithMapFnWithTeardownAction_thenActionIsCorrectlyExecuted(
+        resultFunction: (PCollection<Team>) -> Result<PCollection<OtherTeam>, Failure>,
+        setupActionExpectedMessageConsole: String
+    ) {
+        testLifecycleActionInPipeline(resultFunction, setupActionExpectedMessageConsole)
     }
 
     private fun getTeamsByName(name: TeamNames, teams: List<Team>): List<Team> {
@@ -735,6 +969,32 @@ class CollectionComposerExtensionsTest : Serializable {
         Optional.of(team)
             .filter(noError)
             .orElseThrow(eventualException)
+    }
+
+    private fun testLifecycleActionInPipeline(
+        resultFunction: (PCollection<Team>) -> Result<PCollection<OtherTeam>, Failure>,
+        actionExpectedMessageConsole: String
+    ) {
+
+        // Allows testing side effect.
+        // We perform a System.out.print and checks if the message has been correctly printed in the console.
+        val outContent = ByteArrayOutputStream()
+        val originalOut = System.out
+        System.setOut(PrintStream(outContent))
+
+        // Given.
+        val psgTeam = getTeamsByName(TeamNames.PSG, INPUT_TEAMS_NO_FAILURE)
+        val teamCollection = pipeline.apply("Reads people", Create.of(psgTeam))
+
+        // When.
+        resultFunction(teamCollection)
+        pipeline.run().waitUntilFinish()
+
+        // Then.
+        assertThat(outContent.toString()).isEqualTo(actionExpectedMessageConsole)
+
+        // Adds the original out at the end of test.
+        System.setOut(originalOut)
     }
 
     companion object {

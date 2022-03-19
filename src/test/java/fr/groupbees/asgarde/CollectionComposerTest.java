@@ -2,11 +2,9 @@ package fr.groupbees.asgarde;
 
 import fr.groupbees.asgarde.settings.*;
 import fr.groupbees.asgarde.settings.Datasets.OtherTeam;
+import fr.groupbees.asgarde.settings.Datasets.Player;
 import fr.groupbees.asgarde.settings.Datasets.Team;
-import fr.groupbees.asgarde.transforms.BaseElementFn;
-import fr.groupbees.asgarde.transforms.FilterFn;
-import fr.groupbees.asgarde.transforms.MapElementFn;
-import fr.groupbees.asgarde.transforms.MapProcessContextFn;
+import fr.groupbees.asgarde.transforms.*;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import org.apache.beam.sdk.coders.Coder;
@@ -150,24 +148,38 @@ public class CollectionComposerTest implements Serializable {
      * Contains all the params to test the result with all the FlaMapElement functions without error.
      */
     public Object[] resultCorrectFlatMapElementsParams() {
-        final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultMapElements =
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElements =
                 teams -> CollectionComposer.of(teams)
                         .apply(FLAT_MAP_TO_PLAYER, FlatMapElements
-                                .into(of(Datasets.Player.class))
+                                .into(of(Player.class))
                                 .via(Team::getPlayers)
                                 .exceptionsInto(of(Failure.class))
                                 .exceptionsVia(exElt -> Failure.from(FLAT_MAP_TO_PLAYER, exElt)))
                         .getResult();
 
-        final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultMapElementsInternalErrorHandling =
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElementsInternalErrorHandling =
                 teams -> CollectionComposer.of(teams)
-                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElements.into(of(Datasets.Player.class)).via(Team::getPlayers))
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElements.into(of(Player.class)).via(Team::getPlayers))
                         .getResult();
 
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElementsFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElementFn.into(of(Player.class)).via(Team::getPlayers))
+                        .getResult();
+
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapProcessElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapProcessContextFn
+                                .from(Team.class)
+                                .into(of(Player.class))
+                                .via(context -> context.element().getPlayers()))
+                        .getResult();
 
         return new Object[][]{
-                {resultMapElements},
-                {resultMapElementsInternalErrorHandling}
+                {resultFlatMapElements},
+                {resultFlatMapElementsInternalErrorHandling},
+                {resultFlatMapElementsFn},
+                {resultFlatMapProcessElementFn}
         };
     }
 
@@ -175,23 +187,38 @@ public class CollectionComposerTest implements Serializable {
      * Contains all the params to test the result with all the FlaMapElement functions without error.
      */
     public Object[] resultErrorFlatMapElementsParams() {
-        final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultFlatMapElements =
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElements =
                 teams -> CollectionComposer.of(teams)
                         .apply(FLAT_MAP_TO_PLAYER, FlatMapElements
-                                .into(of(Datasets.Player.class))
+                                .into(of(Player.class))
                                 .via(TestSettings::toPlayersWithException)
                                 .exceptionsInto(of(Failure.class))
                                 .exceptionsVia(exElt -> Failure.from(FLAT_MAP_TO_PLAYER, exElt)))
                         .getResult();
 
-        final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultFlatMapElementsInternalErrorHandling =
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElementsInternalErrorHandling =
                 teams -> CollectionComposer.of(teams)
-                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElements.into(of(Datasets.Player.class)).via(TestSettings::toPlayersWithException))
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElements.into(of(Player.class)).via(TestSettings::toPlayersWithException))
+                        .getResult();
+
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElementFn.into(of(Player.class)).via(TestSettings::toPlayersWithException))
+                        .getResult();
+
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapProcessContextFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapProcessContextFn
+                                .from(Team.class)
+                                .into(of(Player.class))
+                                .via(context -> TestSettings.toPlayersWithException(context.element())))
                         .getResult();
 
         return new Object[][]{
                 {resultFlatMapElements},
-                {resultFlatMapElementsInternalErrorHandling}
+                {resultFlatMapElementsInternalErrorHandling},
+                {resultFlatMapElementFn},
+                {resultFlatMapProcessContextFn}
         };
     }
 
@@ -262,7 +289,7 @@ public class CollectionComposerTest implements Serializable {
      * with start action.
      * In this case we can check if the action was correctly executed
      */
-    public Object[] resultMapElementFnWithSetupActionParams() {
+    public Object[] resultOperationsWithSetupActionParams() {
         final String consoleMessageMapElementFn = "Test start action MapElementFn";
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementFn =
                 teams -> CollectionComposer.of(teams)
@@ -272,7 +299,7 @@ public class CollectionComposerTest implements Serializable {
                                 .withSetupAction(() -> System.out.print(consoleMessageMapElementFn)))
                         .getResult();
 
-        final String consoleMessageMapProcessElementFn = "Test start action MapProcessContextFn";
+        final String consoleMessageMapProcessElementFn = "Test setup action MapProcessContextFn";
         final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapProcessElementFn =
                 teams -> CollectionComposer.of(teams)
                         .apply(MAP_TO_OTHER_TEAM, MapProcessContextFn
@@ -280,6 +307,25 @@ public class CollectionComposerTest implements Serializable {
                                 .into(of(OtherTeam.class))
                                 .via(ctx -> TestSettings.toOtherTeam(ctx.element()))
                                 .withSetupAction(() -> System.out.print(consoleMessageMapProcessElementFn)))
+                        .getResult();
+
+        final String consoleMessageFlatMapElementFn = "Test start action FlatMapElementFn";
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElementFn
+                                .into(of(Player.class))
+                                .via(Team::getPlayers)
+                                .withSetupAction(() -> System.out.print(consoleMessageFlatMapElementFn)))
+                        .getResult();
+
+        final String consoleMessageFlatMapProcessElementFn = "Test setup action FlatMapProcessContextFn";
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapProcessElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapProcessContextFn
+                                .from(Team.class)
+                                .into(of(Player.class))
+                                .via(ctx -> ctx.element().getPlayers())
+                                .withSetupAction(() -> System.out.print(consoleMessageFlatMapProcessElementFn)))
                         .getResult();
 
         return new Object[][]{
@@ -290,6 +336,191 @@ public class CollectionComposerTest implements Serializable {
                 {
                         resultMapProcessElementFn,
                         consoleMessageMapProcessElementFn
+                },
+                {
+                        resultFlatMapProcessElementFn,
+                        consoleMessageFlatMapProcessElementFn
+                },
+                {
+                        resultFlatMapProcessElementFn,
+                        consoleMessageFlatMapProcessElementFn
+                }
+        };
+    }
+
+    public Object[] resultOperationsWithStartBundleActionParams() {
+        final String consoleMessageMapElementFn = "Test start bundle action MapElementFn";
+        final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(MAP_TO_OTHER_TEAM, MapElementFn
+                                .into(of(OtherTeam.class))
+                                .via(TestSettings::toOtherTeam)
+                                .withStartBundleAction(() -> System.out.print(consoleMessageMapElementFn)))
+                        .getResult();
+
+        final String consoleMessageMapProcessElementFn = "Test start action MapProcessContextFn";
+        final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapProcessElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(MAP_TO_OTHER_TEAM, MapProcessContextFn
+                                .from(Team.class)
+                                .into(of(OtherTeam.class))
+                                .via(ctx -> TestSettings.toOtherTeam(ctx.element()))
+                                .withStartBundleAction(() -> System.out.print(consoleMessageMapProcessElementFn)))
+                        .getResult();
+
+        final String consoleMessageFlatMapElementFn = "Test teardown action FlatMapElementFn";
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElementFn
+                                .into(of(Player.class))
+                                .via(Team::getPlayers)
+                                .withStartBundleAction(() -> System.out.print(consoleMessageFlatMapElementFn)))
+                        .getResult();
+
+        final String consoleMessageFlatMapProcessElementFn = "Test teardown action FlatMapProcessContextFn";
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapProcessElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapProcessContextFn
+                                .from(Team.class)
+                                .into(of(Player.class))
+                                .via(ctx -> ctx.element().getPlayers())
+                                .withStartBundleAction(() -> System.out.print(consoleMessageFlatMapProcessElementFn)))
+                        .getResult();
+
+        return new Object[][]{
+                {
+                        resultMapElementFn,
+                        consoleMessageMapElementFn
+                },
+                {
+                        resultMapProcessElementFn,
+                        consoleMessageMapProcessElementFn
+                },
+                {
+                        resultFlatMapProcessElementFn,
+                        consoleMessageFlatMapProcessElementFn
+                },
+                {
+                        resultFlatMapProcessElementFn,
+                        consoleMessageFlatMapProcessElementFn
+                }
+        };
+    }
+
+    public Object[] resultOperationsWithFinishBundleActionParams() {
+        final String consoleMessageMapElementFn = "Test finish bundle action MapElementFn";
+        final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(MAP_TO_OTHER_TEAM, MapElementFn
+                                .into(of(OtherTeam.class))
+                                .via(TestSettings::toOtherTeam)
+                                .withFinishBundleAction(() -> System.out.print(consoleMessageMapElementFn)))
+                        .getResult();
+
+        final String consoleMessageMapProcessElementFn = "Test start action MapProcessContextFn";
+        final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapProcessElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(MAP_TO_OTHER_TEAM, MapProcessContextFn
+                                .from(Team.class)
+                                .into(of(OtherTeam.class))
+                                .via(ctx -> TestSettings.toOtherTeam(ctx.element()))
+                                .withFinishBundleAction(() -> System.out.print(consoleMessageMapProcessElementFn)))
+                        .getResult();
+
+        final String consoleMessageFlatMapElementFn = "Test teardown action FlatMapElementFn";
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElementFn
+                                .into(of(Player.class))
+                                .via(Team::getPlayers)
+                                .withFinishBundleAction(() -> System.out.print(consoleMessageFlatMapElementFn)))
+                        .getResult();
+
+        final String consoleMessageFlatMapProcessElementFn = "Test teardown action FlatMapProcessContextFn";
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapProcessElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapProcessContextFn
+                                .from(Team.class)
+                                .into(of(Player.class))
+                                .via(ctx -> ctx.element().getPlayers())
+                                .withFinishBundleAction(() -> System.out.print(consoleMessageFlatMapProcessElementFn)))
+                        .getResult();
+
+        return new Object[][]{
+                {
+                        resultMapElementFn,
+                        consoleMessageMapElementFn
+                },
+                {
+                        resultMapProcessElementFn,
+                        consoleMessageMapProcessElementFn
+                },
+                {
+                        resultFlatMapProcessElementFn,
+                        consoleMessageFlatMapProcessElementFn
+                },
+                {
+                        resultFlatMapProcessElementFn,
+                        consoleMessageFlatMapProcessElementFn
+                }
+        };
+    }
+
+    public Object[] resultOperationsWithTeardownActionParams() {
+        final String consoleMessageMapElementFn = "Test teardown action MapElementFn";
+        final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(MAP_TO_OTHER_TEAM, MapElementFn
+                                .into(of(OtherTeam.class))
+                                .via(TestSettings::toOtherTeam)
+                                .withTeardownAction(() -> System.out.print(consoleMessageMapElementFn)))
+                        .getResult();
+
+        final String consoleMessageMapProcessElementFn = "Test start action MapProcessContextFn";
+        final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultMapProcessElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(MAP_TO_OTHER_TEAM, MapProcessContextFn
+                                .from(Team.class)
+                                .into(of(OtherTeam.class))
+                                .via(ctx -> TestSettings.toOtherTeam(ctx.element()))
+                                .withTeardownAction(() -> System.out.print(consoleMessageMapProcessElementFn)))
+                        .getResult();
+
+        final String consoleMessageFlatMapElementFn = "Test teardown action FlatMapElementFn";
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapElementFn
+                                .into(of(Player.class))
+                                .via(Team::getPlayers)
+                                .withTeardownAction(() -> System.out.print(consoleMessageFlatMapElementFn)))
+                        .getResult();
+
+        final String consoleMessageFlatMapProcessElementFn = "Test teardown action FlatMapProcessContextFn";
+        final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFlatMapProcessElementFn =
+                teams -> CollectionComposer.of(teams)
+                        .apply(FLAT_MAP_TO_PLAYER, FlatMapProcessContextFn
+                                .from(Team.class)
+                                .into(of(Player.class))
+                                .via(ctx -> ctx.element().getPlayers())
+                                .withTeardownAction(() -> System.out.print(consoleMessageFlatMapProcessElementFn)))
+                        .getResult();
+
+        return new Object[][]{
+                {
+                        resultMapElementFn,
+                        consoleMessageMapElementFn
+                },
+                {
+                        resultMapProcessElementFn,
+                        consoleMessageMapProcessElementFn
+                },
+                {
+                        resultFlatMapProcessElementFn,
+                        consoleMessageFlatMapProcessElementFn
+                },
+                {
+                        resultFlatMapProcessElementFn,
+                        consoleMessageFlatMapProcessElementFn
                 }
         };
     }
@@ -347,16 +578,16 @@ public class CollectionComposerTest implements Serializable {
     @Category(ValidatesRunner.class)
     @Parameters(method = "resultCorrectFlatMapElementsParams")
     public void givenOneTeam_whenApplyComposerWithOneFlatMapWithoutError_thenExpectedOutputPlayersAndNoFailure(
-            final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultFunction) {
+            final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFunction) {
         // Given.
         final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
 
         // When.
-        final Result<PCollection<Datasets.Player>, Failure> result = resultFunction.apply(teamCollection);
+        final Result<PCollection<Player>, Failure> result = resultFunction.apply(teamCollection);
 
         // Then.
-        final List<Datasets.Player> expectedPlayers = psgTeam.stream()
+        final List<Player> expectedPlayers = psgTeam.stream()
                 .map(Team::getPlayers)
                 .flatMap(Collection::stream)
                 .collect(toList());
@@ -364,7 +595,7 @@ public class CollectionComposerTest implements Serializable {
         final PCollection<Failure> failures = result.failures();
         PAssert.that(failures).empty();
 
-        final PCollection<Datasets.Player> output = result.output();
+        final PCollection<Player> output = result.output();
         PAssert.that(output).containsInAnyOrder(expectedPlayers);
 
         pipeline.run().waitUntilFinish();
@@ -374,20 +605,20 @@ public class CollectionComposerTest implements Serializable {
     @Category(ValidatesRunner.class)
     @Parameters(method = "resultErrorFlatMapElementsParams")
     public void givenOneTeam_whenApplyComposerWithFlatMapElementWithError_thenEmptyPlayersOutputAndOneFailure(
-            final Function<PCollection<Team>, Result<PCollection<Datasets.Player>, Failure>> resultFunction) {
+            final Function<PCollection<Team>, Result<PCollection<Player>, Failure>> resultFunction) {
 
         // Given.
         final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
 
         // When.
-        Result<PCollection<Datasets.Player>, Failure> result = resultFunction.apply(teamCollection);
+        Result<PCollection<Player>, Failure> result = resultFunction.apply(teamCollection);
 
         // Then.
         PAssert.that(result.failures())
                 .satisfies(failures -> TestSettings.assertFailuresFromInputTeam(failures, IllegalStateException.class, TestSettings.ERROR_PLAYERS));
 
-        final PCollection<Datasets.Player> output = result.output();
+        final PCollection<Player> output = result.output();
         PAssert.that(output).empty();
 
         pipeline.run().waitUntilFinish();
@@ -557,9 +788,9 @@ public class CollectionComposerTest implements Serializable {
         final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(Datasets.INPUT_TEAMS_WITH_ONE_FAILURE));
 
         // When.
-        final Result<PCollection<Datasets.Player>, Failure> result = CollectionComposer.of(teamCollection)
+        final Result<PCollection<Player>, Failure> result = CollectionComposer.of(teamCollection)
                 .apply(PSG.name(), FlatMapElements
-                        .into(of(Datasets.Player.class))
+                        .into(of(Player.class))
                         .via(this::simulateFlatMapErrorPsgTeam)
                         .exceptionsInto(of(Failure.class))
                         .exceptionsVia(exElt -> Failure.from(PSG.name(), exElt)))
@@ -568,7 +799,7 @@ public class CollectionComposerTest implements Serializable {
         final PCollection<Failure> failures = result.failures();
         PAssert.that(failures).satisfies(resultFailures -> assertFailures(resultFailures, Datasets.EXPECTED_ONE_FAILURES));
 
-        final PCollection<Datasets.Player> output = result.output();
+        final PCollection<Player> output = result.output();
         PAssert.that(output).empty();
 
         pipeline.run().waitUntilFinish();
@@ -598,31 +829,42 @@ public class CollectionComposerTest implements Serializable {
 
     @Test
     @Category(ValidatesRunner.class)
-    @Parameters(method = "resultMapElementFnWithSetupActionParams")
+    @Parameters(method = "resultOperationsWithSetupActionParams")
     public void givenOneTeam_whenApplyComposerWithMapFnWithSetupAction_thenActionIsCorrectlyExecuted(
             final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultFunction,
             final String setupActionExpectedMessageConsole) {
 
-        // Allows to test side effect withSetupAction.
-        // We perform a System.out.print and checks if the message has been correctly printed in the console.
-        final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
-        final PrintStream originalOut = System.out;
-        System.setOut(new PrintStream(outContent));
+        testLifecycleActionInPipeline(resultFunction, setupActionExpectedMessageConsole);
+    }
 
-        // Given.
-        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
-        final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
+    @Test
+    @Category(ValidatesRunner.class)
+    @Parameters(method = "resultOperationsWithStartBundleActionParams")
+    public void givenOneTeam_whenApplyComposerWithMapFnWithStartBundleAction_thenActionIsCorrectlyExecuted(
+            final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultFunction,
+            final String startBundleActionExpectedMessageConsole) {
 
-        // When.
-        resultFunction.apply(teamCollection);
+        testLifecycleActionInPipeline(resultFunction, startBundleActionExpectedMessageConsole);
+    }
 
-        pipeline.run().waitUntilFinish();
+    @Test
+    @Category(ValidatesRunner.class)
+    @Parameters(method = "resultOperationsWithFinishBundleActionParams")
+    public void givenOneTeam_whenApplyComposerWithMapFnWithFinishBundleAction_thenActionIsCorrectlyExecuted(
+            final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultFunction,
+            final String finishBundleActionExpectedMessageConsole) {
 
-        // Then.
-        assertThat(outContent.toString()).isEqualTo(setupActionExpectedMessageConsole);
+        testLifecycleActionInPipeline(resultFunction, finishBundleActionExpectedMessageConsole);
+    }
 
-        // Adds the original out at the end of test.
-        System.setOut(originalOut);
+    @Test
+    @Category(ValidatesRunner.class)
+    @Parameters(method = "resultOperationsWithTeardownActionParams")
+    public void givenOneTeam_whenApplyComposerWithMapFnWithTeardownAction_thenActionIsCorrectlyExecuted(
+            final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultFunction,
+            final String teardownActionExpectedMessageConsole) {
+
+        testLifecycleActionInPipeline(resultFunction, teardownActionExpectedMessageConsole);
     }
 
     private List<Team> getTeamsByName(final Datasets.TeamNames name, final List<Team> teams) {
@@ -645,7 +887,7 @@ public class CollectionComposerTest implements Serializable {
         return true;
     }
 
-    private List<Datasets.Player> simulateFlatMapErrorPsgTeam(final Team team) {
+    private List<Player> simulateFlatMapErrorPsgTeam(final Team team) {
         applyCheckOnTeam(
                 team,
                 t -> !PSG.toString().equals(t.getName()),
@@ -718,5 +960,31 @@ public class CollectionComposerTest implements Serializable {
         Optional.of(team)
                 .filter(noError)
                 .orElseThrow(eventualException);
+    }
+
+    private void testLifecycleActionInPipeline(
+            final Function<PCollection<Team>, Result<PCollection<OtherTeam>, Failure>> resultFunction,
+            final String actionExpectedMessageConsole
+    ) {
+        // Allows testing side effect.
+        // We perform a System.out.print and checks if the message has been correctly printed in the console.
+        final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+        final PrintStream originalOut = System.out;
+        System.setOut(new PrintStream(outContent));
+
+        // Given.
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
+
+        // When.
+        resultFunction.apply(teamCollection);
+
+        pipeline.run().waitUntilFinish();
+
+        // Then.
+        assertThat(outContent.toString()).isEqualTo(actionExpectedMessageConsole);
+
+        // Adds the original out at the end of test.
+        System.setOut(originalOut);
     }
 }

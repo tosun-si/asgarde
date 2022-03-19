@@ -12,6 +12,7 @@ This module allows error handling with Apache Beam.
 | 0.13.0       | 2.34.0      |
 | 0.14.0       | 2.35.0      |
 | 0.15.0       | 2.36.0      |
+| 0.16.0       | 2.37.0      |
 
 ## Installation of project
 
@@ -26,7 +27,7 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.14.0</version>
+    <version>0.16.0</version>
 </dependency>
 ```
 
@@ -246,7 +247,7 @@ We will detail concepts in the next sections.
 - Wrap `exceptionsInto` and `exceptionsVia` usage in the native Beam classes `MapElements` and `FlatMapElements`.
 - Keep the fluent style natively proposed by Beam in `apply` methods while checking for failures and offer a less verbose way of handling errors.
 - Expose custom `DoFn` classes with centralized try/catch blocks (loan pattern) and Tuple tags.
-- Expose an easier access to the `@Setup` step of `DoFn` classes.
+- Expose an easier access to the `@Setup`, `@StartBundle`, `@FinishBundle`, `@Teardown` steps of `DoFn` classes.
 - Expose a way to handle errors in filtering logic (currently not available with Beam's `Filter.by`).
 
 Some resources for Loan pattern : 
@@ -265,7 +266,11 @@ It must be created by the `outputTypeDescriptor` and takes a `SerializableFuncti
 
 This `SerializableFunction` will be invoked lazily in the `@ProcessElement` method and lifecycle of the `DoFn`.
 
-We can also give a `setupAction` to this class, that will be executed in the `@Setup` method and lifecycle.
+We can also give to this class actions related to `DoFn` lifecycle :
+- `setupAction` executed in the `@Setup` method
+- `startBundleAction` executed in the `@StartBundle` method
+- `finishBundleAction` executed in the `@FinishBundle` method
+- `teardownAction` executed in the `@Teardown` method
 
 This action is represented by a `SerializableAction`: 
 
@@ -293,7 +298,8 @@ final PCollection<Integer> outputMapElementFn = CollectionComposer.of(inputPColl
         .apply("PaDo", MapElementFn
                 .into(TypeDescriptors.integers())
                 .via((String word) -> 1 / word.length())
-                .withSetupAction(() -> LOGGER.info("Start word count action in the worker")))
+                .withSetupAction(() -> LOGGER.info("Start word count action in the worker"))
+                .withTeardownAction(() -> LOGGER.info("End word count action in the worker")))
         .getResult()
         .output();
 ```
@@ -311,7 +317,13 @@ because the `SerializableFunction` is from the `ProcessContext` and not from the
 SerializableFunction<ProcessContext, Output>
 ```
 
-This class can take a `setupAction` as the `MapElementFn` and expects an output descriptor too.
+This class can take a `DoFn` lifecycle methods as the `MapElementFn` : 
+- `setupAction`
+- `startBundleAction`
+- `finishBundleAction`
+- `teardownAction`
+
+and expects an output descriptor too.
 
 Usage example: 
 
@@ -321,7 +333,10 @@ final PCollection<Integer> resMapProcessElementFn = CollectionComposer.of(input)
                 .from(String.class)
                 .into(TypeDescriptors.integers())
                 .via(ctx -> 1 / ctx.element().length())
-                .withSetupAction(() -> LOGGER.info("Start word count action in the worker")))
+                .withSetupAction(() -> LOGGER.info("Setup word count action in the worker"))
+                .withStartBundleAction(() -> LOGGER.info("Start bundle word count action in the worker"))
+                .withFinishBundleAction(() -> LOGGER.info("Finish bundle word count action in the worker"))
+                .withTeardownAction(() -> LOGGER.info("End word count action in the worker"))))
         .getResult()
         .output();
 ```
@@ -383,6 +398,35 @@ private static class WordStats implements Serializable {
 
 Behind the scene the `CollectionComposer` class adds the `ParDo` on this `DoFn` and handles errors with tuple tags.
 A default Serializable Coder is created from the output type descriptor (same behaviour as MapElementFn).
+
+#### `FlatMapElementFn`
+
+Same principle as `MapElementFn` but for `flatMap` operator.
+
+```java
+PCollection<Player> players =
+    FlatMapElementFn.into(TypeDescriptor.of(Player.class))
+        .via(team -> team.getPlayers())
+        .withSetupAction(() -> System.out.println("Starting of mapping...")
+        .withStartBundleAction(() -> System.out.println("Starting bundle of mapping...")
+        .withFinishBundleAction(() -> System.out.println("Ending bundle of mapping...")
+        .withTeardownAction(() -> System.out.println("Ending of mapping...")
+```
+
+#### `FlatMapProcessContextFn`
+
+Same principle as `MapProcessContextFn` but for `flatMap` operator.
+
+```java
+PCollection<Player> players =
+    FlatMapProcessContextFn.from(Team.class)
+        .into(TypeDescriptor.of(Player.class))
+        .via((ProcessContext ctx) -> ctx.element().getPlayers())
+        .withSetupAction(() -> System.out.println("Starting of mapping...")
+        .withStartBundleAction(() -> System.out.println("Starting bundle of mapping...")
+        .withFinishBundleAction(() -> System.out.println("Ending bundle of mapping...")
+        .withTeardownAction(() -> System.out.println("Ending of mapping...")
+```
 
 #### `FilterFn` 
 
@@ -518,7 +562,7 @@ public class Failure implements Serializable {
 }
 ```
 
-* It accepts `MapElementFn`, `MapProcessElementFn`, `FilterFn` and custom `DoFn`s:
+* It accepts `MapElementFn`, `MapProcessElementFn`, `MapElementFn`, `MapProcessElementFn`, `FilterFn` and custom `DoFn`s:
 
 ```java
 // Map element Fn.
@@ -854,7 +898,10 @@ CollectionComposer.of(teams)
         .apply("Step name", MapElementFn
                               .into(of(OtherTeam.class))
                               .via(team -> TestSettings.toOtherTeam(team))
-                              .withSetupAction(() -> System.out.print("Test")))
+                              .withSetupAction(() -> System.out.print("Test"))
+                              .withStartBundleAction(() -> System.out.print("Test"))
+                              .withFinishBundleAction(() -> System.out.print("Test"))
+                              .withTeardownAction(() -> System.out.print("Test")))
         .getResult();
 ```
 
@@ -865,7 +912,10 @@ CollectionComposer.of(teams)
         .apply("Step name", MapElementFn
                                   .into(of(OtherTeam.class))
                                   .via(TestSettings::toOtherTeam)
-                                  .withSetupAction(() -> System.out.print("Test")))
+                                  .withSetupAction(() -> System.out.print("Test"))
+                                  .withStartBundleAction(() -> System.out.print("Test"))
+                                  .withFinishBundleAction(() -> System.out.print("Test"))
+                                  .withTeardownAction(() -> System.out.print("Test")))
         .getResult();
 ```
 
@@ -875,7 +925,10 @@ CollectionComposer.of(teams)
 CollectionComposer.of(teams)
       .mapFn("Step name",
         { team -> TestSettings.toOtherTeam(team) },
-        setupAction = { print("Test") }
+        setupAction = { print("Test") }, 
+        startBundleAction = { print("Test") }, 
+        finishBundleAction = { print("Test") }, 
+        teardownAction = { print("Test") }
       )
       .result
 ```
@@ -886,7 +939,68 @@ With `Kotlin` `it`
 CollectionComposer.of(teams)
     .mapFn("Step name",
       { TestSettings.toOtherTeam(it) },
-      setupAction = { print("Test") }
+      setupAction = { print("Test") }, 
+      startBundleAction = { print("Test") }, 
+      finishBundleAction = { print("Test") },
+      teardownAction = { print("Test") }
+    )
+    .result
+```
+
+### Extension for FlatMapElementFn
+
+`Asgarde Java` :
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", FlatMapElementFn
+                              .into(of(Player.class))
+                              .via(team -> team.getPlayers())
+                              .withSetupAction(() -> System.out.print("Test"))
+                              .withStartBundleAction(() -> System.out.print("Test"))
+                              .withFinishBundleAction(() -> System.out.print("Test"))
+                              .withTeardownAction(() -> System.out.print("Test")))
+        .getResult();
+```
+
+With method reference
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", FlatMapElementFn
+                                  .into(of(Player.class))
+                                  .via(Team::getPlayers)
+                                  .withSetupAction(() -> System.out.print("Test"))
+                                  .withStartBundleAction(() -> System.out.print("Test"))
+                                  .withFinishBundleAction(() -> System.out.print("Test"))
+                                  .withTeardownAction(() -> System.out.print("Test")))
+        .getResult();
+```
+
+`Asgarde Kotlin` :
+
+```kotlin
+CollectionComposer.of(teams)
+      .flatMapFn("Step name",
+        { team -> team.players },
+        setupAction = { print("Test") }, 
+        startBundleAction = { print("Test") }, 
+        finishBundleAction = { print("Test") }, 
+        teardownAction = { print("Test") }
+      )
+      .result
+```
+
+With `Kotlin` `it`
+
+```kotlin
+CollectionComposer.of(teams)
+    .flatMapFn("Step name",
+      { it.players },
+      setupAction = { print("Test") },
+      startBundleAction = { print("Test") },
+      finishBundleAction = { print("Test") },
+      teardownAction = { print("Test") }
     )
     .result
 ```
@@ -901,7 +1015,10 @@ CollectionComposer.of(teams)
                               .from(Team.class)
                               .into(of(OtherTeam.class))
                               .via(ctx -> TestSettings.toOtherTeam(ctx))
-                              .withSetupAction(() -> System.out.print("Test")))
+                              .withSetupAction(() -> System.out.print("Test"))
+                              .withStartBundleAction(() -> System.out.print("Test"))
+                              .withFinishBundleAction(() -> System.out.print("Test"))
+                              .withTeardownAction(() -> System.out.print("Test")))
         .getResult();
 ```
 
@@ -913,7 +1030,10 @@ CollectionComposer.of(teams)
                             .from(Team.class)
                             .into(of(OtherTeam.class))
                             .via(TestSettings::toOtherTeam)
-                            .withSetupAction(() -> System.out.print("Test")))
+                            .withSetupAction(() -> System.out.print("Test"))
+                            .withStartBundleAction(() -> System.out.print("Test"))
+                            .withFinishBundleAction(() -> System.out.print("Test"))
+                            .withTeardownAction(() -> System.out.print("Test")))
         .getResult();
 ```
 
@@ -923,7 +1043,10 @@ CollectionComposer.of(teams)
 CollectionComposer.of(teams)
     .mapFnWithContext("Step name",
       { ctx: DoFn<Team, OtherTeam>.ProcessContext -> TestSettings.toOtherTeam(ctx) },
-      setupAction =  { print("Test") }
+      setupAction =  { print("Test") }, 
+      startBundleAction =  { print("Test") }, 
+      finishBundleAction =  { print("Test") },
+      teardownAction =  { print("Test") }
     )
     .result
 ```
@@ -934,11 +1057,73 @@ With `Kotlin` `it`
 CollectionComposer.of(teams)
     .mapFnWithContext<Team, OtherTeam>("Step name",
       { TestSettings.toOtherTeam(it) },
-      setupAction =  { print("Test") }
+      setupAction =  { print("Test") },
+      startBundleAction =  { print("Test") },
+      finishBundleAction =  { print("Test") },
+      teardownAction =  { print("Test") }
     )
     .result
 ```
 
+### Extension for FlatMapProcessContextFn
+
+`Asgarde Java` :
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", FlatMapProcessContextFn
+                              .from(Team.class)
+                              .into(of(Player.class))
+                              .via(ctx -> TestSettins.toPlayers(ctx))
+                              .withSetupAction(() -> System.out.print("Test"))
+                              .withStartBundleAction(() -> System.out.print("Test"))
+                              .withFinishBundleAction(() -> System.out.print("Test"))
+                              .withTeardownAction(() -> System.out.print("Test")))
+        .getResult();
+```
+
+With method reference
+
+```java
+CollectionComposer.of(teams)
+        .apply("Step name", FlatMapProcessContextFn
+                             .from(Team.class)
+                             .into(of(Player.class))
+                             .via(TestSettins::toPlayers)
+                             .withSetupAction(() -> System.out.print("Test"))
+                             .withStartBundleAction(() -> System.out.print("Test"))
+                             .withFinishBundleAction(() -> System.out.print("Test"))
+                             .withTeardownAction(() -> System.out.print("Test")))
+        .getResult();
+```
+
+`Asgarde Kotlin` :
+
+```kotlin
+CollectionComposer.of(teams)
+    .flatMapFnWithContext("Step name",
+      { ctx: DoFn<Team, Player>.ProcessContext -> TestSettings.toPlayers(ctx) },
+      setupAction =  { print("Test") }, 
+      startBundleAction =  { print("Test") },
+      finishBundleAction =  { print("Test") }, 
+      teardownAction =  { print("Test") }
+    )
+    .result
+```
+
+With `Kotlin` `it`
+
+```kotlin
+CollectionComposer.of(teams)
+    .flatMapFnWithContext<Team, Player>("Step name",
+      { TestSettings.toPlayers(it) },
+      setupAction =  { print("Test") },
+      startBundleAction =  { print("Test") },
+      finishBundleAction =  { print("Test") },
+      teardownAction =  { print("Test") }
+    )
+    .result
+```
 
 ### Extension for FilterFn
 
@@ -978,4 +1163,3 @@ CollectionComposer.of(teamCollection)
 
 - Allow passing a custom coder in the `apply` method of `CollectionComposer`.
 - Allow injecting a custom `Failure` object and error handling function to be used in all `apply` calls.
-- Add FlatMapElementFn and FlatMapProcessElementFn classes.

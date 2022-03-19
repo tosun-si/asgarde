@@ -4,6 +4,8 @@ import org.apache.beam.sdk.transforms.WithFailures;
 
 import java.io.Serializable;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Class used by default to handle error cases and failure outputs.
  * <p>
@@ -36,6 +38,9 @@ public class Failure implements Serializable {
      */
     public static <T> Failure from(final String pipelineStep,
                                    final WithFailures.ExceptionElement<T> exceptionElement) {
+        requireNonNull(pipelineStep);
+        requireNonNull(exceptionElement);
+
         final T inputElement = exceptionElement.element();
         return new Failure(pipelineStep, inputElement.toString(), exceptionElement.exception());
     }
@@ -52,6 +57,9 @@ public class Failure implements Serializable {
     public static <T> Failure from(final String pipelineStep,
                                    final T element,
                                    final Throwable exception) {
+        requireNonNull(element);
+        requireNonNull(exception);
+
         return new Failure(pipelineStep, element.toString(), exception);
     }
 

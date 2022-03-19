@@ -1,9 +1,6 @@
 package fr.groupbees.asgarde
 
-import fr.groupbees.asgarde.transforms.FilterFn
-import fr.groupbees.asgarde.transforms.MapElementFn
-import fr.groupbees.asgarde.transforms.MapProcessContextFn
-import fr.groupbees.asgarde.transforms.SerializableAction
+import fr.groupbees.asgarde.transforms.*
 import org.apache.beam.sdk.transforms.*
 import org.apache.beam.sdk.transforms.WithFailures.ExceptionElement
 import org.apache.beam.sdk.values.PCollectionView
@@ -122,7 +119,10 @@ inline fun <I, reified O : Serializable> CollectionComposer<I>.flatMapWithFailur
  *      .mapFn(
  *          "Step name",
  *          { team -> TestSettings.toOtherTeam(team) },
- *          { print("Test setup action") }
+ *          setupAction = { print("Test setup action") },
+ *          startBundleAction = { print("Test start bundle action") },
+ *          finishBundleAction = { print("Test finish bundle action") },
+ *          teardownAction = { print("Test teardown action") },
  *      )
  *      .result
  * ```
@@ -130,17 +130,69 @@ inline fun <I, reified O : Serializable> CollectionComposer<I>.flatMapWithFailur
  * @param name step name
  * @param transform current transformation function
  * @param setupAction setup action function
+ * @param startBundleAction start bundle action function
+ * @param finishBundleAction finish bundle function
+ * @param teardownAction teardown action function
  */
 inline fun <I, reified O : Serializable> CollectionComposer<I>.mapFn(
     name: String = "map to ${O::class.simpleName}",
     transform: SerializableFunction<I, O>,
-    setupAction: SerializableAction = SerializableAction { }
+    setupAction: SerializableAction = SerializableAction { },
+    startBundleAction: SerializableAction = SerializableAction { },
+    finishBundleAction: SerializableAction = SerializableAction { },
+    teardownAction: SerializableAction = SerializableAction { }
 ): CollectionComposer<O> {
     return this.apply(
         name, MapElementFn
             .into(TypeDescriptor.of(O::class.java))
             .via(transform)
             .withSetupAction(setupAction)
+            .withStartBundleAction(startBundleAction)
+            .withFinishBundleAction(finishBundleAction)
+            .withTeardownAction(teardownAction)
+    )
+}
+
+
+/**
+ * Extension for [FlatMapElementFn] class with all parameters.
+ *
+ * ```kotlin
+ *  CollectionComposer.of(teams)
+ *      .flatMapFn(
+ *          "Step name",
+ *          { team -> team.players },
+ *          setupAction = { print("Test setup action") },
+ *          startBundleAction = { print("Test start bundle action") },
+ *          finishBundleAction = { print("Test finish bundle action") },
+ *          teardownAction = { print("Test teardown action") },
+ *      )
+ *      .result
+ * ```
+ *
+ * @param name step name
+ * @param transform current transformation function
+ * @param setupAction setup action function
+ * @param startBundleAction start bundle action function
+ * @param finishBundleAction finish bundle action function
+ * @param teardownAction teardown action function
+ */
+inline fun <I, reified O : Serializable> CollectionComposer<I>.flatMapFn(
+    name: String = "flatMap to ${O::class.simpleName}",
+    transform: SerializableFunction<I, Iterable<O>>,
+    setupAction: SerializableAction = SerializableAction { },
+    startBundleAction: SerializableAction = SerializableAction { },
+    finishBundleAction: SerializableAction = SerializableAction { },
+    teardownAction: SerializableAction = SerializableAction { }
+): CollectionComposer<O> {
+    return this.apply(
+        name, FlatMapElementFn
+            .into(TypeDescriptor.of(O::class.java))
+            .via(transform)
+            .withSetupAction(setupAction)
+            .withStartBundleAction(startBundleAction)
+            .withFinishBundleAction(finishBundleAction)
+            .withTeardownAction(teardownAction)
     )
 }
 
@@ -154,14 +206,33 @@ inline fun <I, reified O : Serializable> CollectionComposer<I>.mapFn(
  *          "Step name",
  *          { context: DoFn<Team, OtherTeam>.ProcessContext -> toOtherTeamWithSideInputField(sideInput, context) },
  *          setupAction = { print("Test setup action") },
+ *          startBundleAction = { print("Test start bundle action") },
+ *          finishBundleAction = { print("Test finish bundle action") },
+ *          teardownAction = { print("Test teardown action") },
  *          sideInputs = listOf(sideInput)
  *      )
  *      .result
+ *
+ * fun toOtherTeamWithSideInputField(
+ *     sideInput: PCollectionView<String>,
+ *     context: DoFn<Team, OtherTeam>.ProcessContext
+ * ): OtherTeam {
+ *
+ *     val inputTeam: Team = context.element()
+ *     val otherTeam = TestSettings.toOtherTeam(inputTeam)
+ *
+ *     otherTeam.sideInputField = context.sideInput(sideInput)
+ *
+ *     return otherTeam
+ * }
  * ```
  *
  * @param name pipeline step name
  * @param transform current transformation function
  * @param setupAction setup action function
+ * @param startBundleAction start bundle action function
+ * @param finishBundleAction finish bundle action function
+ * @param teardownAction teardown action function
  * @param sideInputs side inputs associated to this DoFn class
  * @return current [CollectionComposer] class with result output and failures
  */
@@ -169,6 +240,9 @@ inline fun <reified I, reified O : Serializable> CollectionComposer<I>.mapFnWith
     name: String = "map to ${O::class.simpleName}",
     transform: SerializableFunction<DoFn<I, O>.ProcessContext, O>,
     setupAction: SerializableAction = SerializableAction { },
+    startBundleAction: SerializableAction = SerializableAction { },
+    finishBundleAction: SerializableAction = SerializableAction { },
+    teardownAction: SerializableAction = SerializableAction { },
     sideInputs: Iterable<PCollectionView<*>> = emptyList()
 ): CollectionComposer<O> {
     return this.apply(
@@ -176,7 +250,74 @@ inline fun <reified I, reified O : Serializable> CollectionComposer<I>.mapFnWith
             .from(I::class.java)
             .into(TypeDescriptor.of(O::class.java))
             .via(transform)
-            .withSetupAction(setupAction),
+            .withSetupAction(setupAction)
+            .withStartBundleAction(startBundleAction)
+            .withFinishBundleAction(finishBundleAction)
+            .withTeardownAction(teardownAction),
+        sideInputs
+    )
+}
+
+/**
+ * Extension for [FlatMapProcessContextFn] class with all parameters.
+ * Side inputs as [PCollectionView] can be passed to this DoFn.
+ *
+ * ```kotlin
+ * CollectionComposer.of(teamCollection)
+ *      .flatMapFnWithContext(
+ *          "Step name",
+ *          { context: DoFn<Team, Player>.ProcessContext -> toPlayers(sideInput, context) },
+ *          setupAction = { print("Test setup action") },
+ *          startBundleAction = { print("Test start bundle action") },
+ *          finishBundleAction = { print("Test finish bundle action") },
+ *          teardownAction = { print("Test teardown action") },
+ *          sideInputs = listOf(sideInput)
+ *      )
+ *      .result
+ *
+ * fun toPlayers(
+ *      sideInput: PCollectionView<String>,
+ *      context: DoFn<Team, Player>.ProcessContext
+ * ): List<Player> {
+ *    // Get side input field.
+ *    val sideInputField: String = context.sideInput(sideInput)
+ *
+ *    val inputTeam: Team = context.element()
+ *    val players = inputTeam.players
+ *
+ *    // Can add logic based on side input field....
+ *
+ *    return players
+ * }
+ * ```
+ *
+ * @param name pipeline step name
+ * @param transform current transformation function
+ * @param setupAction setup action function
+ * @param startBundleAction start bundle action function
+ * @param finishBundleAction finish bundle action function
+ * @param teardownAction teardown action function
+ * @param sideInputs side inputs associated to this DoFn class
+ * @return current [CollectionComposer] class with result output and failures
+ */
+inline fun <reified I, reified O : Serializable> CollectionComposer<I>.flatMapFnWithContext(
+    name: String = "map to ${O::class.simpleName}",
+    transform: SerializableFunction<DoFn<I, O>.ProcessContext, Iterable<O>>,
+    setupAction: SerializableAction = SerializableAction { },
+    startBundleAction: SerializableAction = SerializableAction { },
+    finishBundleAction: SerializableAction = SerializableAction { },
+    teardownAction: SerializableAction = SerializableAction { },
+    sideInputs: Iterable<PCollectionView<*>> = emptyList()
+): CollectionComposer<O> {
+    return this.apply(
+        name, FlatMapProcessContextFn
+            .from(I::class.java)
+            .into(TypeDescriptor.of(O::class.java))
+            .via(transform)
+            .withSetupAction(setupAction)
+            .withStartBundleAction(startBundleAction)
+            .withFinishBundleAction(finishBundleAction)
+            .withTeardownAction(teardownAction),
         sideInputs
     )
 }

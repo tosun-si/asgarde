@@ -8,7 +8,7 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class allows to handle a generic and custom {@link org.apache.beam.sdk.transforms.DoFn} for map operation
+ * This class allows to handle a generic and custom {@link org.apache.beam.sdk.transforms.DoFn} for flatMap operation
  * with error handling.
  *
  * <br>
@@ -17,7 +17,7 @@ import static java.util.Objects.requireNonNull;
  * This class is based on an input class and output type descriptor and take a {@link org.apache.beam.sdk.transforms.SerializableFunction} to execute
  * the mapping treatment lazily.
  * These types allows to give type information and handle default coders.
- * This function is from {@link org.apache.beam.sdk.transforms.DoFn.ProcessContext} object to the output type.
+ * This function is from {@link org.apache.beam.sdk.transforms.DoFn.ProcessContext} object to an iterable of output type.
  * In some case, developers need to access to ProcessContext, to get technical data (timestamp...) or handle side inputs.
  * This function is mandatory and executed in the ProcessElement stage of Beam lifecycle.
  * </p>
@@ -27,10 +27,10 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * This class can take actions {@link SerializableAction}, used in the DoFn Beam lifecycle.
  * <ul>
- *    <li>withSetupAction : executed in the setup method</li>
- *    <li>withStartBundleAction : executed in the start bundle method</li>
- *    <li>withFinishBundleAction : executed in the finish bundle method</li>
- *    <li>withTeardownAction : executed in the teardown method</li>
+ *     <li>withSetupAction : executed in the setup method</li>
+ *     <li>withStartBundleAction : executed in the start bundle method</li>
+ *     <li>withFinishBundleAction : executed in the finish bundle method</li>
+ *     <li>withTeardownAction : executed in the teardown method</li>
  * </ul>
  * <p>
  * These functions are not required and if they are given, they are executed lazily in the dedicated method.
@@ -49,38 +49,38 @@ import static java.util.Objects.requireNonNull;
  *
  * <pre>{@code
  *        // With serializable function but without lifecycle actions.
- *        MapProcessContextFn.from(String.class)
- *                           .into(TypeDescriptors.integers())
- *                           .via((ProcessContext ctx) -> 1 / ctx.element().length)  // Could throw ArithmeticException
+ *        FlatMapProcessContextFn.from(Team.class)
+ *                               .into(TypeDescriptor.of(Player.class))
+ *                               .via((ProcessContext ctx) -> ctx.element().getPlayers())  // Could throw an exception
  *
  *        // With serializable function and some lifecycle actions.
- *        MapProcessContextFn.from(String.class)
- *                           .into(TypeDescriptors.integers())
- *                           .via((String word) -> 1 / word.length)
- *                           .withSetupAction(() -> System.out.println("Starting of mapping...")
- *                           .withStartBundleAction(() -> System.out.println("Starting bundle of mapping...")
- *                           .withFinishBundleAction(() -> System.out.println("Ending bundle of mapping...")
- *                           .withTeardownAction(() -> System.out.println("Ending of mapping...")
+ *        FlatMapProcessContextFn.from(Team.class)
+ *                               .into(TypeDescriptor.of(Player.class))
+ *                               .via((ProcessContext ctx) -> ctx.element().getPlayers())
+ *                               .withSetupAction(() -> System.out.println("Starting of mapping...")
+ *                               .withStartBundleAction(() -> System.out.println("Starting bundle of mapping...")
+ *                               .withFinishBundleAction(() -> System.out.println("Ending bundle of mapping...")
+ *                               .withTeardownAction(() -> System.out.println("Ending of mapping...")
  *      }
  * </pre>
  *
  * @author mazlum
  */
-public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT> {
+public class FlatMapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT> {
 
     private final SerializableAction setupAction;
     private final SerializableAction startBundleAction;
     private final SerializableAction finishBundleAction;
     private final SerializableAction teardownAction;
-    private final SerializableFunction<DoFn<InputT, OutputT>.ProcessContext, OutputT> processContextMapper;
+    private final SerializableFunction<DoFn<InputT, OutputT>.ProcessContext, Iterable<OutputT>> processContextMapper;
 
-    private MapProcessContextFn(final TypeDescriptor<InputT> inputType,
-                                final TypeDescriptor<OutputT> outputType,
-                                final SerializableAction setupAction,
-                                final SerializableAction startBundleAction,
-                                final SerializableAction finishBundleAction,
-                                final SerializableAction teardownAction,
-                                final SerializableFunction<DoFn<InputT, OutputT>.ProcessContext, OutputT> processContextMapper) {
+    private FlatMapProcessContextFn(final TypeDescriptor<InputT> inputType,
+                                    final TypeDescriptor<OutputT> outputType,
+                                    final SerializableAction setupAction,
+                                    final SerializableAction startBundleAction,
+                                    final SerializableAction finishBundleAction,
+                                    final SerializableAction teardownAction,
+                                    final SerializableFunction<DoFn<InputT, OutputT>.ProcessContext, Iterable<OutputT>> processContextMapper) {
         super(inputType, outputType);
         this.setupAction = setupAction;
         this.startBundleAction = startBundleAction;
@@ -94,13 +94,13 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
      *
      * @param inputClass a {@link java.lang.Class} object
      * @param <InputT>   a InputT class
-     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
+     * @return a {@link fr.groupbees.asgarde.transforms.FlatMapProcessContextFn} object
      */
-    public static <InputT> MapProcessContextFn<InputT, ?> from(final Class<InputT> inputClass) {
+    public static <InputT> FlatMapProcessContextFn<InputT, ?> from(final Class<InputT> inputClass) {
         final SerializableAction defaultAction = () -> {
         };
 
-        return new MapProcessContextFn<>(
+        return new FlatMapProcessContextFn<>(
                 TypeDescriptor.of(inputClass),
                 null,
                 defaultAction,
@@ -116,13 +116,13 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
      *
      * @param outputType   a {@link org.apache.beam.sdk.values.TypeDescriptor} object
      * @param <NewOutputT> a NewOutputT class
-     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
+     * @return a {@link fr.groupbees.asgarde.transforms.FlatMapProcessContextFn} object
      */
-    public <NewOutputT> MapProcessContextFn<InputT, NewOutputT> into(final TypeDescriptor<NewOutputT> outputType) {
+    public <NewOutputT> FlatMapProcessContextFn<InputT, NewOutputT> into(final TypeDescriptor<NewOutputT> outputType) {
         final SerializableAction defaultAction = () -> {
         };
 
-        return new MapProcessContextFn<>(
+        return new FlatMapProcessContextFn<>(
                 inputType,
                 outputType,
                 defaultAction,
@@ -140,12 +140,12 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
      * This function is mandatory in process element phase.
      *
      * @param processContextMapper serializable function from process context and to output
-     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
+     * @return a {@link fr.groupbees.asgarde.transforms.FlatMapProcessContextFn} object
      */
-    public MapProcessContextFn<InputT, OutputT> via(final SerializableFunction<DoFn<InputT, OutputT>.ProcessContext, OutputT> processContextMapper) {
+    public FlatMapProcessContextFn<InputT, OutputT> via(final SerializableFunction<DoFn<InputT, OutputT>.ProcessContext, Iterable<OutputT>> processContextMapper) {
         requireNonNull(processContextMapper);
 
-        return new MapProcessContextFn<>(
+        return new FlatMapProcessContextFn<>(
                 inputType,
                 outputType,
                 setupAction,
@@ -162,12 +162,12 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
      * This function is not mandatory in the setup phase.
      *
      * @param setupAction setup action
-     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
+     * @return a {@link fr.groupbees.asgarde.transforms.FlatMapProcessContextFn} object
      */
-    public MapProcessContextFn<InputT, OutputT> withSetupAction(final SerializableAction setupAction) {
+    public FlatMapProcessContextFn<InputT, OutputT> withSetupAction(final SerializableAction setupAction) {
         requireNonNull(setupAction);
 
-        return new MapProcessContextFn<>(
+        return new FlatMapProcessContextFn<>(
                 inputType,
                 outputType,
                 setupAction,
@@ -184,12 +184,12 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
      * This function is not mandatory in the start bundle phase.
      *
      * @param startBundleAction start bundle action
-     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
+     * @return a {@link fr.groupbees.asgarde.transforms.FlatMapProcessContextFn} object
      */
-    public MapProcessContextFn<InputT, OutputT> withStartBundleAction(final SerializableAction startBundleAction) {
+    public FlatMapProcessContextFn<InputT, OutputT> withStartBundleAction(final SerializableAction startBundleAction) {
         requireNonNull(startBundleAction);
 
-        return new MapProcessContextFn<>(
+        return new FlatMapProcessContextFn<>(
                 inputType,
                 outputType,
                 setupAction,
@@ -206,12 +206,12 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
      * This function is not mandatory in the finish bundle phase.
      *
      * @param finishBundleAction finish bundle action
-     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
+     * @return a {@link fr.groupbees.asgarde.transforms.FlatMapProcessContextFn} object
      */
-    public MapProcessContextFn<InputT, OutputT> withFinishBundleAction(final SerializableAction finishBundleAction) {
+    public FlatMapProcessContextFn<InputT, OutputT> withFinishBundleAction(final SerializableAction finishBundleAction) {
         requireNonNull(finishBundleAction);
 
-        return new MapProcessContextFn<>(
+        return new FlatMapProcessContextFn<>(
                 inputType,
                 outputType,
                 setupAction,
@@ -228,12 +228,12 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
      * This function is not mandatory in the teardown phase.
      *
      * @param teardownAction teardown action
-     * @return a {@link fr.groupbees.asgarde.transforms.MapProcessContextFn} object
+     * @return a {@link fr.groupbees.asgarde.transforms.FlatMapProcessContextFn} object
      */
-    public MapProcessContextFn<InputT, OutputT> withTeardownAction(final SerializableAction teardownAction) {
+    public FlatMapProcessContextFn<InputT, OutputT> withTeardownAction(final SerializableAction teardownAction) {
         requireNonNull(teardownAction);
 
-        return new MapProcessContextFn<>(
+        return new FlatMapProcessContextFn<>(
                 inputType,
                 outputType,
                 setupAction,
@@ -285,7 +285,9 @@ public class MapProcessContextFn<InputT, OutputT> extends BaseElementFn<InputT, 
     public void processElement(DoFn<InputT, OutputT>.ProcessContext ctx) {
         requireNonNull(processContextMapper);
         try {
-            ctx.output(processContextMapper.apply(ctx));
+            final Iterable<OutputT> outputs = processContextMapper.apply(ctx);
+
+            outputs.forEach(ctx::output);
         } catch (Throwable throwable) {
             final Failure failure = Failure.from(pipelineStep, ctx.element(), throwable);
             ctx.output(failuresTag, failure);

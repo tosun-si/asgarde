@@ -87,6 +87,8 @@ public abstract class BaseElementFn<InputT, OutputT> extends DoFn<InputT, Output
 
     /**
      * <p>Setter for the field <code>pipelineStep</code>.</p>
+     *
+     * @param pipelineStep pipeline step concerned by the current transformation
      */
     public void setPipelineStep(final String pipelineStep) {
         this.pipelineStep = pipelineStep;
