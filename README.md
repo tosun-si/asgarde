@@ -1,3 +1,5 @@
+![Logo](asgarde_logo_small.gif) 
+
 # Asgarde
 
 This module allows error handling with Apache Beam.
