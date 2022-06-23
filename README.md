@@ -16,6 +16,7 @@ This module allows error handling with Apache Beam.
 | 0.15.0       | 2.36.0      |
 | 0.16.0       | 2.37.0      |
 | 0.17.0       | 2.38.0      |
+| 0.18.0       | 2.39.0      |
 
 ## Installation of project
 
@@ -30,14 +31,14 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.17.0</version>
+    <version>0.18.0</version>
 </dependency>
 ```
 
 #### Gradle
 
 ```text
-implementation group: 'fr.groupbees', name: 'asgarde', version: '0.17.0'
+implementation group: 'fr.groupbees', name: 'asgarde', version: '0.18.0'
 ```
 
 ## Error logic with Beam ParDo and DoFn
