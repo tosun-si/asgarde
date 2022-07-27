@@ -1,6 +1,7 @@
 package fr.groupbees.asgarde.transforms;
 
 import fr.groupbees.asgarde.Failure;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
@@ -252,7 +253,7 @@ public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT
      * @param ctx a ProcessContext object
      */
     @ProcessElement
-    public void processElement(ProcessContext ctx) {
+    public void processElement(DoFn<InputT, OutputT>.ProcessContext ctx) {
         requireNonNull(inputElementMapper);
         try {
             ctx.output(inputElementMapper.apply(ctx.element()));

@@ -4,12 +4,11 @@ import fr.groupbees.asgarde.transforms.BaseElementFn;
 import fr.groupbees.asgarde.transforms.FilterFn;
 import fr.groupbees.asgarde.transforms.MapElementFn;
 import fr.groupbees.asgarde.transforms.MapProcessContextFn;
-import org.apache.beam.sdk.coders.SerializableCoder;
+import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.WithFailures.Result;
 import org.apache.beam.sdk.values.*;
 
-import java.io.Serializable;
 import java.util.Collections;
 
 /**
@@ -190,8 +189,8 @@ public class CollectionComposer<T> {
      * @param <OutputT> the output after transformation
      * @return CollectionComposer of output
      */
-    public <OutputT extends Serializable> CollectionComposer<OutputT> apply(final String name,
-                                                                            final BaseElementFn<T, OutputT> doFn) {
+    public <OutputT> CollectionComposer<OutputT> apply(final String name,
+                                                       final BaseElementFn<T, OutputT> doFn) {
         return apply(name, doFn, Collections.emptyList());
     }
 
@@ -241,9 +240,7 @@ public class CollectionComposer<T> {
      *
      * <p>
      * In this case, the output {@link TypeDescriptor} is given by the given {@link BaseElementFn}
-     * and by default a {@link SerializableCoder} code is applied on this type descriptor.
-     * <p>
-     * In order to do that the OutputT type should extend {@link Serializable}.
+     * and by default the code is inferred from this type descriptor.
      * </p>
      *
      * <p>Example usage:</p>
@@ -277,9 +274,9 @@ public class CollectionComposer<T> {
      * @param <OutputT>  the output type of the output PCollection
      * @return CollectionComposer of output
      */
-    public <OutputT extends Serializable> CollectionComposer<OutputT> apply(final String name,
-                                                                            final BaseElementFn<T, OutputT> doFn,
-                                                                            final Iterable<? extends PCollectionView<?>> sideInputs) {
+    public <OutputT> CollectionComposer<OutputT> apply(final String name,
+                                                       final BaseElementFn<T, OutputT> doFn,
+                                                       final Iterable<? extends PCollectionView<?>> sideInputs) {
         doFn.setPipelineStep(name);
 
         final PCollectionTuple tuple = outputPCollection.apply(name,
@@ -289,10 +286,20 @@ public class CollectionComposer<T> {
 
         final PCollection<OutputT> outputCollection = tuple
                 .get(doFn.getOutputTag())
-                .setTypeDescriptor(doFn.getOutputType())
-                .setCoder(SerializableCoder.of(doFn.getOutputType()));
+                .setTypeDescriptor(doFn.getOutputTypeDescriptor());
 
         return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(doFn.getFailuresTag())));
+    }
+
+    /**
+     * Set the given {@link Coder} to the current output {@link PCollection} in the flow.
+     *
+     * @return CollectionComposer with current output and failure
+     */
+    public CollectionComposer<T> setCoder(final Coder<T> coder) {
+        outputPCollection.setCoder(coder);
+
+        return new CollectionComposer<>(outputPCollection, failuresPCollection);
     }
 
     /**
@@ -311,6 +318,6 @@ public class CollectionComposer<T> {
      * @return all failures in a PCollection
      */
     private PCollection<Failure> getFailurePCollection() {
-        return failuresPCollection.apply(Flatten.pCollections());
+        return failuresPCollection.apply("Get all failures" + this, Flatten.pCollections());
     }
 }

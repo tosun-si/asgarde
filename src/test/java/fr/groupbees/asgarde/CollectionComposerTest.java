@@ -1,5 +1,6 @@
 package fr.groupbees.asgarde;
 
+import avro.generated.AvroTest;
 import fr.groupbees.asgarde.settings.*;
 import fr.groupbees.asgarde.settings.Datasets.OtherTeam;
 import fr.groupbees.asgarde.settings.Datasets.Player;
@@ -7,8 +8,12 @@ import fr.groupbees.asgarde.settings.Datasets.Team;
 import fr.groupbees.asgarde.transforms.*;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.SerializableCoder;
+import org.apache.beam.sdk.io.AvroIO;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.testing.ValidatesRunner;
@@ -27,10 +32,10 @@ import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -39,6 +44,7 @@ import java.util.function.Supplier;
 import java.util.stream.StreamSupport;
 
 import static fr.groupbees.asgarde.settings.Datasets.TeamNames.*;
+import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.beam.sdk.values.TypeDescriptor.of;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -515,12 +521,49 @@ public class CollectionComposerTest implements Serializable {
                         consoleMessageMapProcessElementFn
                 },
                 {
-                        resultFlatMapProcessElementFn,
-                        consoleMessageFlatMapProcessElementFn
+                        resultFlatMapElementFn,
+                        consoleMessageFlatMapElementFn
                 },
                 {
                         resultFlatMapProcessElementFn,
                         consoleMessageFlatMapProcessElementFn
+                }
+        };
+    }
+
+    public Object[] resultOperationsTestsWithCoderParam() {
+        final Function<PCollection<AvroTest>, CollectionComposer<GenericRecord>> resultMapElement =
+                a -> CollectionComposer.of(a)
+                        .apply("Map", MapElements.into(of(GenericRecord.class)).via(this::avroObjectToGenericRecord));
+
+        final Function<PCollection<AvroTest>, CollectionComposer<GenericRecord>> resultMapElementFn =
+                a -> CollectionComposer.of(a)
+                        .apply("Map Fn", MapElementFn.into(of(GenericRecord.class)).via(this::avroObjectToGenericRecord));
+
+        final Function<PCollection<AvroTest>, CollectionComposer<GenericRecord>> resultFlatMapElement =
+                a -> CollectionComposer.of(a)
+                        .apply("FlatMap", FlatMapElements
+                                .into(of(GenericRecord.class))
+                                .via((AvroTest t) -> singletonList(this.avroObjectToGenericRecord(t))));
+
+        final Function<PCollection<AvroTest>, CollectionComposer<GenericRecord>> resultFlatMapElementFn =
+                a -> CollectionComposer.of(a)
+                        .apply("FlatMap Fn", FlatMapElementFn
+                                .into(of(GenericRecord.class))
+                                .via((AvroTest t) -> singletonList(this.avroObjectToGenericRecord(t))));
+
+        return new Object[][]{
+                {
+                        resultMapElement
+                },
+                {
+                        resultMapElementFn
+                },
+                {
+                        resultFlatMapElement
+                },
+                {
+                        resultFlatMapElementFn
                 }
         };
     }
@@ -669,7 +712,7 @@ public class CollectionComposerTest implements Serializable {
                                 .from(Team.class)
                                 .into(of(OtherTeam.class))
                                 .via(context -> TestSettings.toOtherTeamWithSideInputField(sideInput, context)),
-                        Collections.singletonList(sideInput))
+                        singletonList(sideInput))
                 .getResult();
 
         final PCollection<Failure> failures = result.failures();
@@ -865,6 +908,112 @@ public class CollectionComposerTest implements Serializable {
             final String teardownActionExpectedMessageConsole) {
 
         testLifecycleActionInPipeline(resultFunction, teardownActionExpectedMessageConsole);
+    }
+
+    @Test
+    @Category(ValidatesRunner.class)
+    public void givenInputPCollection_whenApplyComposerWithSerializableCoder_thenExpectedOutputPCollection() {
+
+        // Given.
+        final List<Team> psgTeam = getTeamsByName(PSG, Datasets.INPUT_TEAMS_NO_FAILURE);
+        final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(psgTeam));
+
+        // When.
+        final Result<PCollection<OtherTeam>, Failure> result = CollectionComposer.of(teamCollection)
+                .apply(MAP_TO_OTHER_TEAM, MapElements.into(of(OtherTeam.class)).via(TestSettings::toOtherTeam))
+                .setCoder(SerializableCoder.of(OtherTeam.class))
+                .getResult();
+
+        // Then.
+        final PCollection<Failure> failures = result.failures();
+        PAssert.that(failures).empty();
+
+        final PCollection<OtherTeam> output = result.output();
+        PAssert.that(output).satisfies(TestSettings::assertOtherTeam);
+
+        pipeline.run().waitUntilFinish();
+    }
+
+    @Test
+    @Category(ValidatesRunner.class)
+    public void givenInputAvroObjects_whenApplyComposerWithAvroCoderOnGenericRecordAndMapperOnSameElement_thenExpectedAvroObjectsInResult() {
+
+        // Given.
+        final AvroTest inputAvroObject = AvroTest.newBuilder()
+                .setId(34444)
+                .setName("test")
+                .build();
+
+        final File inputFile = new File("src/test/resources/avro/test-object.avro");
+
+        final PCollection<AvroTest> avroObjectsCollection = pipeline.apply("Reads Avro objects", AvroIO
+                .read(AvroTest.class)
+                .from(inputFile.getAbsolutePath()));
+
+        final Result<PCollection<AvroTest>, Failure> result = CollectionComposer.of(avroObjectsCollection)
+                .apply(MAP_TO_OTHER_TEAM, MapElements.into(of(AvroTest.class)).via(a -> a))
+                .getResult();
+
+        final Result<PCollection<AvroTest>, Failure> result2 = CollectionComposer.of(avroObjectsCollection)
+                .apply(MAP_TO_OTHER_TEAM + "2", MapElementFn.into(of(AvroTest.class)).via(a -> a))
+                .getResult();
+
+        // Then.
+        final PCollection<Failure> failures = result.failures();
+        PAssert.that(failures).empty();
+
+        PAssert.that(result.output()).
+                containsInAnyOrder(singletonList(inputAvroObject));
+
+        PAssert.that(result2.output()).
+                containsInAnyOrder(singletonList(inputAvroObject));
+
+        pipeline.run().waitUntilFinish();
+    }
+
+    @Test
+    @Category(ValidatesRunner.class)
+    @Parameters(method = "resultOperationsTestsWithCoderParam")
+    public void givenInputObjects_whenApplyComposerWithAvroCoderOnGenericRecordAndMapperToGenericRecord_thenExpectedGenericRecordsInResult(
+            final Function<PCollection<AvroTest>, CollectionComposer<GenericRecord>> resultOperationFunction
+    ) {
+        // Given.
+        final AvroTest inputAvroObject = AvroTest.newBuilder()
+                .setId(34444)
+                .setName("test")
+                .build();
+
+        final File inputFile = new File("src/test/resources/avro/test-object.avro");
+
+        final PCollection<AvroTest> avroObjectsCollection = pipeline.apply("Reads Avro objects", AvroIO
+                .read(AvroTest.class)
+                .from(inputFile.getAbsolutePath()));
+
+        final Result<PCollection<GenericRecord>, Failure> result = resultOperationFunction
+                .apply(avroObjectsCollection)
+                .setCoder(AvroCoder.of(GenericRecord.class, inputAvroObject.getSchema()))
+                .getResult();
+
+        // Then.
+        final PCollection<Failure> failures = result.failures();
+        PAssert.that(failures).empty();
+
+        GenericRecord expectedRecord = new GenericData.Record(inputAvroObject.getSchema());
+        expectedRecord.put("id", inputAvroObject.getId());
+        expectedRecord.put("name", inputAvroObject.getName());
+
+        PAssert.that(result.output()).
+                containsInAnyOrder(singletonList(expectedRecord));
+
+        pipeline.run().waitUntilFinish();
+    }
+
+    private GenericRecord avroObjectToGenericRecord(final AvroTest avroTest) {
+        GenericRecord record = new GenericData.Record(avroTest.getSchema());
+        record.put("id", avroTest.getId());
+        record.put("name", avroTest.getName());
+
+        return record;
     }
 
     private List<Team> getTeamsByName(final Datasets.TeamNames name, final List<Team> teams) {

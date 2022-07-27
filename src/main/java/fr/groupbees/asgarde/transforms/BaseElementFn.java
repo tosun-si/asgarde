@@ -34,8 +34,8 @@ public abstract class BaseElementFn<InputT, OutputT> extends DoFn<InputT, Output
      * <p>Constructor for BaseElementFn.</p>
      */
     protected BaseElementFn() {
-        inputType = getInputTypeDescriptor();
-        outputType = getOutputTypeDescriptor();
+        inputType = super.getInputTypeDescriptor();
+        outputType = super.getOutputTypeDescriptor();
     }
 
     /**
@@ -54,7 +54,7 @@ public abstract class BaseElementFn<InputT, OutputT> extends DoFn<InputT, Output
      *
      * @return a {@link org.apache.beam.sdk.values.TypeDescriptor} object
      */
-    public TypeDescriptor<InputT> getInputType() {
+    public TypeDescriptor<InputT> getInputTypeDescriptor() {
         return inputType;
     }
 
@@ -63,7 +63,7 @@ public abstract class BaseElementFn<InputT, OutputT> extends DoFn<InputT, Output
      *
      * @return a {@link org.apache.beam.sdk.values.TypeDescriptor} object
      */
-    public TypeDescriptor<OutputT> getOutputType() {
+    public TypeDescriptor<OutputT> getOutputTypeDescriptor() {
         return outputType;
     }
 

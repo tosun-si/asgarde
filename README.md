@@ -17,6 +17,7 @@ This module allows error handling with Apache Beam.
 | 0.16.0       | 2.37.0      |
 | 0.17.0       | 2.38.0      |
 | 0.18.0       | 2.39.0      |
+| 0.19.0       | 2.40.0      |
 
 ## Installation of project
 
@@ -31,14 +32,14 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.18.0</version>
+    <version>0.19.0</version>
 </dependency>
 ```
 
 #### Gradle
 
 ```text
-implementation group: 'fr.groupbees', name: 'asgarde', version: '0.18.0'
+implementation group: 'fr.groupbees', name: 'asgarde', version: '0.19.0'
 ```
 
 ## Error logic with Beam ParDo and DoFn
@@ -664,6 +665,54 @@ final PCollection<String> output = resultComposer.output();
 final PCollection<Failure> failures = resultComposer.failures();
 ```
 
+### Coder in CollectionComposer class
+
+#### Coder for output PCollection
+
+A coder can be set for the current output `PCollection` in the flow, example : 
+
+```java
+// Generate and instantiate an Avro specific object.
+final AvroTest inputAvroObject = AvroTest.newBuilder()
+    .setId(34444)
+    .setName("test")
+    .build();
+
+// Read an Avro file with a type corresponding to the previous specific object.
+final PCollection<AvroTest> avroObjectsCollection = pipeline.apply("Reads Avro objects", AvroIO
+    .read(AvroTest.class)
+    .from("filePath"));
+
+private GenericRecord avroObjectToGenericRecord(final AvroTest avroTest) {
+    GenericRecord record = new GenericData.Record(avroTest.getSchema());
+    record.put("id", avroTest.getId());
+    record.put("name", avroTest.getName());
+
+    return record;
+}
+
+// Flow with CollectionComposer.
+final Result<PCollection<GenericRecord>, Failure> result2 = CollectionComposer.of(avroObjectsCollection)
+    .apply("Map", MapElements.into(of(GenericRecord.class)).via(this::avroObjectToGenericRecord))
+    .setCoder(AvroCoder.of(GenericRecord.class, inputAvroObject.getSchema()))
+    .getResult();
+```
+
+In this example, an `Avro` file is read and mapped to a typed and specific object `AvroTest`.\
+Then we simulate a transformation from this `AvroTest` instance to a `GenericRecord` object.\
+The `GenericRecord` doesn't contain any information about `Serialization` and in this case `Beam` can't infer
+a default `Coder`.\
+
+We have to set a `Coder` for the output `PCollection` of `GenericRecord` :
+
+```java
+  .setCoder(AvroCoder.of(GenericRecord.class, inputAvroObject.getSchema()))
+```
+
+`Asgarde` and the `CollectionComposer` class work as the usual `PCollection` for coders and 
+propose the same `setCoder` method for good outputs.
+
+
 ## Asgarde with Kotlin
 
 `Apache Beam Java` can be used with `Kotlin`, and it's make the experience more enjoyable.
@@ -1165,5 +1214,4 @@ CollectionComposer.of(teamCollection)
 
 ## Possible evolutions in the future
 
-- Allow passing a custom coder in the `apply` method of `CollectionComposer`.
-- Allow injecting a custom `Failure` object and error handling function to be used in all `apply` calls.
+- Maybe allow injecting a custom `Failure` object and error handling function to be used in all `apply` calls.
