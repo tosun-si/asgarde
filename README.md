@@ -402,7 +402,6 @@ private static class WordStats implements Serializable {
 ```
 
 Behind the scene the `CollectionComposer` class adds the `ParDo` on this `DoFn` and handles errors with tuple tags.
-A default Serializable Coder is created from the output type descriptor (same behaviour as MapElementFn).
 
 #### `FlatMapElementFn`
 
@@ -701,7 +700,7 @@ final Result<PCollection<GenericRecord>, Failure> result2 = CollectionComposer.o
 In this example, an `Avro` file is read and mapped to a typed and specific object `AvroTest`.\
 Then we simulate a transformation from this `AvroTest` instance to a `GenericRecord` object.\
 The `GenericRecord` doesn't contain any information about `Serialization` and in this case `Beam` can't infer
-a default `Coder`.\
+a default `Coder`.
 
 We have to set a `Coder` for the output `PCollection` of `GenericRecord` :
 
