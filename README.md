@@ -2,7 +2,7 @@
 
 # Asgarde
 
-This module allows error handling with Apache Beam.
+This module allows simplifying error handling with Apache Beam Java.
 
 ## Versions compatibility between Beam and Asgarde
 
