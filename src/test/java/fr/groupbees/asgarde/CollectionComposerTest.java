@@ -1008,6 +1008,34 @@ public class CollectionComposerTest implements Serializable {
         pipeline.run().waitUntilFinish();
     }
 
+    @Test
+    @Category(ValidatesRunner.class)
+    public void givenInputPCollection_whenApplyComposerWithSnappyCoderOnFailures_thenExpectedFailurePCollection() {
+        // Given.
+        final PCollection<Team> teamCollection = pipeline.apply("Reads people", Create.of(Datasets.INPUT_TEAMS_WITH_THREE_FAILURES));
+
+        // When.
+        final Result<PCollection<Team>, Failure> result = CollectionComposer.of(teamCollection)
+//                .setFailureCoder(SnappyCoder.of(SerializableCoder.of(Failure.class)))
+                .setFailureCoder(AvroCoder.of(Failure.class))
+                .apply(PSG.name(), MapElements.into(of(Team.class)).via(this::toTeamWithPsgError))
+                .apply(JUVENTUS.name(), MapProcessContextFn.from(Team.class).into(of(Team.class)).via(this::toTeamWithJuveError))
+                .apply(BAYERN.name(), MapElementFn.into(of(Team.class)).via(this::toTeamWithBayernError))
+                .apply(FILTER_TEAMS, FilterFn.by(this::isNotBarcelona))
+                .getResult();
+
+        final PCollection<Failure> failures = result.failures();
+        PAssert.that(failures).satisfies(resultFailures -> assertFailures(resultFailures, Datasets.EXPECTED_THREE_FAILURES));
+
+        final List<Team> expectedTeams = JsonUtil.deserializeFromResourcePath(
+                "outputs/output-five-teams-with-three-failures-and-one-good-output.json", Datasets.TEAM_TYPE_REF);
+
+        final PCollection<Team> output = result.output();
+        PAssert.that(output).containsInAnyOrder(expectedTeams);
+
+        pipeline.run().waitUntilFinish();
+    }
+
     private GenericRecord avroObjectToGenericRecord(final AvroTest avroTest) {
         GenericRecord record = new GenericData.Record(avroTest.getSchema());
         record.put("id", avroTest.getId());

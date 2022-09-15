@@ -20,9 +20,15 @@ public class Failure implements Serializable {
     private final String inputElement;
     private final Throwable exception;
 
-    private Failure(String pipelineStep,
-                    String inputElement,
-                    Throwable exception) {
+    public Failure() {
+        this.pipelineStep = null;
+        this.inputElement = null;
+        this.exception = null;
+    }
+
+    public Failure(String pipelineStep,
+                   String inputElement,
+                   Throwable exception) {
         this.pipelineStep = pipelineStep;
         this.inputElement = inputElement;
         this.exception = exception;

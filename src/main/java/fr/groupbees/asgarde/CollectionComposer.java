@@ -5,11 +5,15 @@ import fr.groupbees.asgarde.transforms.FilterFn;
 import fr.groupbees.asgarde.transforms.MapElementFn;
 import fr.groupbees.asgarde.transforms.MapProcessContextFn;
 import org.apache.beam.sdk.coders.Coder;
+import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.WithFailures.Result;
 import org.apache.beam.sdk.values.*;
 
 import java.util.Collections;
+import java.util.List;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * This class allows to compose some transforms from an input {@link PCollection}.
@@ -41,10 +45,14 @@ public class CollectionComposer<T> {
 
     private final PCollection<T> outputPCollection;
     private final PCollectionList<Failure> failuresPCollection;
+    private final Coder<Failure> failuresCoder;
 
-    private CollectionComposer(PCollection<T> outputPCollection, PCollectionList<Failure> failuresPCollection) {
+    private CollectionComposer(PCollection<T> outputPCollection,
+                               PCollectionList<Failure> failuresPCollection,
+                               Coder<Failure> failuresCoder) {
         this.outputPCollection = outputPCollection;
         this.failuresPCollection = failuresPCollection;
+        this.failuresCoder = failuresCoder;
     }
 
     /**
@@ -55,7 +63,11 @@ public class CollectionComposer<T> {
      * @return The CollectionComposer instance from the input PCollection
      */
     public static <T> CollectionComposer<T> of(final PCollection<T> inputPCollection) {
-        return new CollectionComposer<>(inputPCollection, PCollectionList.empty(inputPCollection.getPipeline()));
+        return new CollectionComposer<>(
+                inputPCollection,
+                PCollectionList.empty(inputPCollection.getPipeline()),
+                SerializableCoder.of(TypeDescriptor.of(Failure.class))
+        );
     }
 
     /**
@@ -178,7 +190,7 @@ public class CollectionComposer<T> {
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final PTransform<PCollection<T>, Result<PCollection<OutputT>, Failure>> transform) {
         final Result<PCollection<OutputT>, Failure> result = outputPCollection.apply(name, transform);
-        return new CollectionComposer<>(result.output(), failuresPCollection.and(result.failures()));
+        return new CollectionComposer<>(result.output(), failuresPCollection.and(result.failures()), failuresCoder);
     }
 
     /**
@@ -224,7 +236,10 @@ public class CollectionComposer<T> {
                 .setTypeDescriptor(outputPCollection.getCoder().getEncodedTypeDescriptor())
                 .setCoder(outputPCollection.getCoder());
 
-        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(doFn.getFailuresTag())));
+        return new CollectionComposer<>(outputCollection,
+                failuresPCollection.and(tuple.get(doFn.getFailuresTag())),
+                failuresCoder
+        );
     }
 
     /**
@@ -288,7 +303,11 @@ public class CollectionComposer<T> {
                 .get(doFn.getOutputTag())
                 .setTypeDescriptor(doFn.getOutputTypeDescriptor());
 
-        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(doFn.getFailuresTag())));
+        return new CollectionComposer<>(
+                outputCollection,
+                failuresPCollection.and(tuple.get(doFn.getFailuresTag())),
+                failuresCoder
+        );
     }
 
     /**
@@ -297,9 +316,18 @@ public class CollectionComposer<T> {
      * @return CollectionComposer with current output and failure
      */
     public CollectionComposer<T> setCoder(final Coder<T> coder) {
-        outputPCollection.setCoder(coder);
+        final PCollection<T> outputPCollectionWithCoder = outputPCollection.setCoder(coder);
 
-        return new CollectionComposer<>(outputPCollection, failuresPCollection);
+        return new CollectionComposer<>(outputPCollectionWithCoder, failuresPCollection, failuresCoder);
+    }
+
+    /**
+     * Set the given {@link Coder} to the current failure {@link PCollection} in the flow.
+     *
+     * @return CollectionComposer with current output and failure
+     */
+    public CollectionComposer<T> setFailureCoder(final Coder<Failure> failuresCoder) {
+        return new CollectionComposer<T>(outputPCollection, failuresPCollection, failuresCoder);
     }
 
     /**
@@ -318,6 +346,12 @@ public class CollectionComposer<T> {
      * @return all failures in a PCollection
      */
     private PCollection<Failure> getFailurePCollection() {
-        return failuresPCollection.apply("Get all failures" + this, Flatten.pCollections());
+        final List<PCollection<Failure>> failureCollectionsWithCoder = failuresPCollection.getAll()
+                .stream()
+                .map(failureCollection -> failureCollection.setCoder(failuresCoder))
+                .collect(toList());
+
+        return PCollectionList.of(failureCollectionsWithCoder)
+                .apply("Get all failures" + this, Flatten.pCollections());
     }
 }
