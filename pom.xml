@@ -14,7 +14,7 @@
 
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.21.0</version>
+    <version>0.22.0</version>
 
     <packaging>jar</packaging>
 
@@ -23,8 +23,8 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <beam.version>2.42.0</beam.version>
-        <slf4j.version>1.7.33</slf4j.version>
+        <beam.version>2.43.0</beam.version>
+        <slf4j.version>2.0.4</slf4j.version>
 
         <!-- Kotlin -->
         <kotlin.code.style>official</kotlin.code.style>
@@ -32,10 +32,10 @@
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
         <kotlin.version>1.7.0</kotlin.version>
 
-        <lombok.version>1.18.22</lombok.version>
+        <lombok.version>1.18.24</lombok.version>
         <junit.version>4.13.2</junit.version>
         <junit-params.version>1.1.1</junit-params.version>
-        <assertj.version>3.22.0</assertj.version>
+        <assertj.version>3.23.1</assertj.version>
         <hamcrest.version>2.2</hamcrest.version>
         <maven-avro-plugin.version>1.8.1</maven-avro-plugin.version>
         <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
@@ -53,7 +53,7 @@
     <licenses>
         <license>
             <name>MIT License</name>
-            <url>http://www.opensource.org/licenses/mit-license.php</url>
+            <url>https://www.opensource.org/licenses/mit-license.php</url>
         </license>
     </licenses>
 
