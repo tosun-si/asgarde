@@ -22,6 +22,7 @@ This module allows simplifying error handling with Apache Beam Java.
 | 0.21.0  | 2.42.0 |
 | 0.22.0  | 2.43.0 |
 | 0.23.0  | 2.44.0 |
+| 0.24.0  | 2.45.0 |
 
 ## Installation of project
 
