@@ -44,14 +44,14 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.31.0</version>
+    <version>0.32.0</version>
 </dependency>
 ```
 
 #### Gradle
 
 ```text
-implementation group: 'fr.groupbees', name: 'asgarde', version: '0.31.0'
+implementation group: 'fr.groupbees', name: 'asgarde', version: '0.32.0'
 ```
 
 ## Error logic with Beam ParDo and DoFn
