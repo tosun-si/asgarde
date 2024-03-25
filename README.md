@@ -30,6 +30,7 @@ This module allows simplifying error handling with Apache Beam Java.
 | 0.29.0  | 2.50.0 |
 | 0.30.0  | 2.51.0 |
 | 0.31.0  | 2.52.0 |
+| 0.32.0  | 2.53.0 |
 
 ## Installation of project
 
