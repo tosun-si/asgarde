@@ -14,7 +14,7 @@
 
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.32.0</version>
+    <version>0.33.0</version>
 
     <packaging>jar</packaging>
 
@@ -23,14 +23,14 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <beam.version>2.53.0</beam.version>
+        <beam.version>2.54.0</beam.version>
         <slf4j.version>2.0.4</slf4j.version>
 
         <!-- Kotlin -->
         <kotlin.code.style>official</kotlin.code.style>
         <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
-        <kotlin.version>1.7.0</kotlin.version>
+        <kotlin.version>1.9.22</kotlin.version>
 
         <lombok.version>1.18.24</lombok.version>
         <junit.version>4.13.2</junit.version>
