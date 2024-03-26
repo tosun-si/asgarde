@@ -31,6 +31,7 @@ This module allows simplifying error handling with Apache Beam Java.
 | 0.30.0  | 2.51.0 |
 | 0.31.0  | 2.52.0 |
 | 0.32.0  | 2.53.0 |
+| 0.33.0  | 2.54.0 |
 
 ## Installation of project
 
@@ -45,14 +46,14 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.32.0</version>
+    <version>0.33.0</version>
 </dependency>
 ```
 
 #### Gradle
 
 ```text
-implementation group: 'fr.groupbees', name: 'asgarde', version: '0.32.0'
+implementation group: 'fr.groupbees', name: 'asgarde', version: '0.33.0'
 ```
 
 ## Error logic with Beam ParDo and DoFn
@@ -733,6 +734,7 @@ propose the same `setCoder` method for good outputs.
 functional programming style.
 
 > :warning: **Kotlin Asgarde is proposed from 0.15.0 and Beam 2.36.0 versions**
+> :warning: **The current Kotlin version used with Asgarde is : 1.9.22**
 
 Let's take a previous example of `Asgarde Java` pipeline with error handling :
 
