@@ -1,9 +1,9 @@
 package fr.groupbees.asgarde.settings;
 
-import avro.shaded.com.google.common.collect.ImmutableMap;
 import com.fasterxml.jackson.core.type.TypeReference;
 import fr.groupbees.asgarde.CollectionComposerTest;
 import fr.groupbees.asgarde.Failure;
+import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.ImmutableMap;
 
 import java.io.Serializable;
 import java.util.List;
