@@ -3,3 +3,4 @@ target
 *.iml
 **/avro/generated
 .DS_Store
+private.key
