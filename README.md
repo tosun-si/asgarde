@@ -6,6 +6,8 @@ This module allows simplifying error handling with Apache Beam Java.
 
 ## Versions compatibility between Beam and Asgarde
 
+<div style="max-height: 200px; overflow-y: auto; overflow-x: auto;">
+
 | Asgarde | Beam   |
 |---------|--------|
 | 0.10.0  | 2.31.0 |
@@ -35,6 +37,9 @@ This module allows simplifying error handling with Apache Beam Java.
 | 0.34.0  | 2.55.0 |
 | 0.35.0  | 2.56.0 |
 | 0.36.0  | 2.57.0 |
+| 0.37.0  | 2.58.0 |
+
+</div>
 
 ## Installation of project
 
@@ -49,14 +54,14 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.36.0</version>
+    <version>0.37.0</version>
 </dependency>
 ```
 
 #### Gradle
 
 ```text
-implementation group: 'fr.groupbees', name: 'asgarde', version: '0.36.0'
+implementation group: 'fr.groupbees', name: 'asgarde', version: '0.37.0'
 ```
 
 ## Error logic with Beam ParDo and DoFn
