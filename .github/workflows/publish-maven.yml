@@ -1,12 +1,13 @@
 name: Publish to Maven Central
 
 on:
-  release:
-    types: [ created ]
+  push:
+    tags: [ 'v*.*.*' ]
   workflow_dispatch:
 
 jobs:
   publish:
+    name: Publish to Maven Central
     runs-on: ubuntu-latest
     environment: asgarde_ci_cd
 
