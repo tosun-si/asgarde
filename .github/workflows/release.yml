@@ -17,9 +17,40 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Get previous tag
+        id: previous_tag
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+          echo "Previous tag: $PREVIOUS_TAG"
+
+      - name: Generate commit list
+        id: commits
+        run: |
+          if [ -z "${{ steps.previous_tag.outputs.tag }}" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (\`%h\`) - @%an" HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (\`%h\`) - @%an" ${{ steps.previous_tag.outputs.tag }}..HEAD)
+          fi
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           draft: false
           prerelease: false
+          append_body: true
+          body: |
+            
+            ---
+            
+            ## 📝 All Commits
+            
+            ${{ steps.commits.outputs.commits }}
+            
+            ---
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.previous_tag.outputs.tag }}...${{ github.ref_name }}
