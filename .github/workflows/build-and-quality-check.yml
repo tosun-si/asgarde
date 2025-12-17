@@ -10,6 +10,7 @@ jobs:
   build-and-analyze:
     name: Build, Test and Analyze
     runs-on: ubuntu-latest
+    environment: asgarde_ci_cd
 
     steps:
       - name: Checkout code
