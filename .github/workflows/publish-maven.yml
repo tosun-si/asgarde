@@ -43,9 +43,9 @@ jobs:
 
       - name: Publish to Maven Central
         env:
-          GPG_PASSPHRASE: ${{ secrets.OSSRH_GPG_PASSPHRASE }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.OSSRH_GPG_PASSPHRASE }}
         run: |
           mvn clean deploy -P release \
             -DskipTests \
-            -Dgpg.passphrase=$GPG_PASSPHRASE \
-            --batch-mode --no-transfer-progress
+            --batch-mode  \
+            --no-transfer-progress
