@@ -47,6 +47,7 @@ This module allows simplifying error handling with Apache Beam Java.
 | 0.44.0  | 2.65.0 |
 | 0.45.0  | 2.66.0 |
 | 0.46.0  | 2.67.0 |
+| 0.47.0  | 2.68.0 |
 
 </div>
 
@@ -63,14 +64,14 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.46.0</version>
+    <version>0.47.0</version>
 </dependency>
 ```
 
 #### Gradle
 
 ```text
-implementation group: 'fr.groupbees', name: 'asgarde', version: '0.46.0'
+implementation group: 'fr.groupbees', name: 'asgarde', version: '0.47.0'
 ```
 
 ## Error logic with Beam ParDo and DoFn
