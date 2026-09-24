@@ -45,6 +45,9 @@ public class CollectionComposer<T> {
     private final PCollectionList<Failure> failuresPCollection;
     private final String lastStepName;
 
+    // Built once: calling getResult() several times must not apply the same (deterministic) transform name twice.
+    private PCollection<Failure> allFailures;
+
     private CollectionComposer(PCollection<T> outputPCollection,
                                PCollectionList<Failure> failuresPCollection,
                                String lastStepName) {
@@ -305,7 +308,7 @@ public class CollectionComposer<T> {
     public CollectionComposer<T> setCoder(final Coder<T> coder) {
         outputPCollection.setCoder(coder);
 
-        return new CollectionComposer<>(outputPCollection, failuresPCollection, lastStepName);
+        return this;
     }
 
     /**
@@ -324,6 +327,14 @@ public class CollectionComposer<T> {
      * @return all failures in a PCollection
      */
     private PCollection<Failure> getFailurePCollection() {
+        if (allFailures == null) {
+            allFailures = flattenFailures();
+        }
+
+        return allFailures;
+    }
+
+    private PCollection<Failure> flattenFailures() {
         // Deterministic name: Dataflow streaming updates (--update) need stable transform names.
         final String stepName = lastStepName == null ? FAILURES_STEP_NAME : FAILURES_STEP_NAME + " of " + lastStepName;
 

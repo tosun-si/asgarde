@@ -92,6 +92,29 @@ public class FailureTest {
     }
 
     @Test
+    public void givenNonSerializableExceptionWithNonSerializableCauseAndSuppressed_whenCreateFailure_thenAllConverted() {
+        // Given.
+        final NonSerializableException cause = new NonSerializableException(null);
+        final NonSerializableException suppressed = new NonSerializableException(null);
+        final IllegalStateException serializableSuppressed = new IllegalStateException("Serializable suppressed");
+
+        final NonSerializableException exception = new NonSerializableException(cause);
+        exception.addSuppressed(suppressed);
+        exception.addSuppressed(serializableSuppressed);
+
+        // When.
+        final Throwable resultException = SerializableUtils.clone(Failure.from("Step", "element", exception)).getException();
+
+        // Then.
+        assertThat(resultException.getCause()).isInstanceOf(SerializableThrowable.class);
+        assertThat(resultException.getSuppressed()).hasSize(2);
+        assertThat(resultException.getSuppressed()[0]).isInstanceOf(SerializableThrowable.class);
+        assertThat(resultException.getSuppressed()[1])
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Serializable suppressed");
+    }
+
+    @Test
     public void givenNullElement_whenCreateFailure_thenInputElementAsNullString() {
         // When.
         final Failure resultFailure = Failure.from("Step", null, new IllegalStateException("Error"));

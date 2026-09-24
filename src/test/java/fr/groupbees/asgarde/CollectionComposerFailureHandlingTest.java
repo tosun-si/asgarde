@@ -1,6 +1,9 @@
 package fr.groupbees.asgarde;
 
+import fr.groupbees.asgarde.transforms.BaseElementFn;
+import fr.groupbees.asgarde.transforms.FilterFn;
 import fr.groupbees.asgarde.transforms.FlatMapElementFn;
+import fr.groupbees.asgarde.transforms.FlatMapProcessContextFn;
 import fr.groupbees.asgarde.transforms.MapElementFn;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.Pipeline.PipelineExecutionException;
@@ -12,15 +15,19 @@ import org.apache.beam.sdk.runners.TransformHierarchy;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.FlatMapElements;
 import org.apache.beam.sdk.transforms.MapElements;
+import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.WithFailures.Result;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.TupleTagList;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.StreamSupport;
@@ -181,6 +188,132 @@ public class CollectionComposerFailureHandlingTest implements Serializable {
         pipeline.run().waitUntilFinish();
     }
 
+    @Test
+    public void givenIterableFailingInTheMiddle_whenApplyFlatMapProcessContextFn_thenOnlyFailureAndNoPartialOutput() {
+        // Given.
+        final PCollection<String> words = pipeline.apply("Create words", Create.of("a"));
+
+        // When.
+        final Result<PCollection<String>, Failure> result = CollectionComposer.of(words)
+                .apply(STEP_1, FlatMapProcessContextFn
+                        .from(String.class)
+                        .into(TypeDescriptors.strings())
+                        .via(ctx -> oneOutputThenFail(ctx.element())))
+                .getResult();
+
+        // Then.
+        PAssert.that(result.output()).empty();
+        PAssert.that(toPipelineSteps(result.failures())).containsInAnyOrder(STEP_1);
+
+        pipeline.run().waitUntilFinish();
+    }
+
+    @Test
+    public void givenSameFilterFnInstanceInTwoSteps_whenApplyComposer_thenEachFailureHasItsOwnStepName() {
+        // Given.
+        final FilterFn<String> failOnPrefixedWords = FilterFn.by(word -> !failIfPrefixed(word).isEmpty());
+
+        final PCollection<String> words = pipeline.apply("Create words", Create.of("a", "xb"));
+
+        // When.
+        final Result<PCollection<String>, Failure> result = CollectionComposer.of(words)
+                .apply(STEP_1, failOnPrefixedWords)
+                .apply(STEP_2, MapElements.into(TypeDescriptors.strings()).via((String word) -> "x" + word))
+                .apply("Step 3", failOnPrefixedWords)
+                .getResult();
+
+        // Then.
+        PAssert.that(result.output()).empty();
+        PAssert.that(toPipelineSteps(result.failures())).containsInAnyOrder(STEP_1, "Step 3");
+
+        pipeline.run().waitUntilFinish();
+    }
+
+    @Test
+    public void givenCustomDoFnCallingOutputFailure_whenApplyComposer_thenFailureWithStepNameAndOutputType() {
+        // Given.
+        final PCollection<String> words = pipeline.apply("Create words", Create.of("a", "xb"));
+
+        // When.
+        final Result<PCollection<Integer>, Failure> result = CollectionComposer.of(words)
+                .apply(STEP_1, new WordLengthOrFailIfPrefixedFn())
+                .getResult();
+
+        // Then.
+        assertThat(result.output().getTypeDescriptor()).isEqualTo(TypeDescriptors.integers());
+        PAssert.that(result.output()).containsInAnyOrder(1);
+        PAssert.that(toPipelineSteps(result.failures())).containsInAnyOrder(STEP_1);
+
+        pipeline.run().waitUntilFinish();
+    }
+
+    @Test
+    public void givenFailuresInAllKindsOfSteps_whenRunPipeline_thenFailureCounterIncrementedByStep() {
+        // Given.
+        final PCollection<String> words = pipeline.apply("Create words", Create.of("a", "xb"));
+
+        // When.
+        CollectionComposer.of(words)
+                .apply("FlatMapElements", FlatMapElements
+                        .into(TypeDescriptors.strings())
+                        .via((String word) -> Arrays.asList(failIfPrefixed(word), "x" + word)))
+                .apply("FilterFn", FilterFn.by(word -> !failIfPrefixed(word).isEmpty()))
+                .getResult();
+
+        CollectionComposer.of(words)
+                .apply("Custom DoFn", new WordLengthOrFailIfPrefixedFn())
+                .getResult();
+
+        final PipelineResult pipelineResult = pipeline.run();
+        pipelineResult.waitUntilFinish();
+
+        // Then.
+        assertThat(failureCounter(pipelineResult, "FlatMapElements")).isEqualTo(1L);
+        assertThat(failureCounter(pipelineResult, "FilterFn")).isEqualTo(1L);
+        assertThat(failureCounter(pipelineResult, "Custom DoFn")).isEqualTo(1L);
+    }
+
+    @Test
+    public void givenDoFnAppliedWithoutComposer_whenRunPipeline_thenFailureCountedInUnknownStep() {
+        // Given.
+        final MapElementFn<String, String> failOnPrefixedWords = MapElementFn
+                .into(TypeDescriptors.strings())
+                .via(CollectionComposerFailureHandlingTest::failIfPrefixed);
+
+        final PCollection<String> words = pipeline.apply("Create words", Create.of("a", "xb"));
+
+        // When.
+        words.apply("ParDo without composer", ParDo.of(failOnPrefixedWords)
+                .withOutputTags(failOnPrefixedWords.getOutputTag(), TupleTagList.of(failOnPrefixedWords.getFailuresTag())));
+
+        final PipelineResult pipelineResult = pipeline.run();
+        pipelineResult.waitUntilFinish();
+
+        // Then.
+        assertThat(failureCounter(pipelineResult, FailureMetrics.UNKNOWN_STEP)).isEqualTo(1L);
+    }
+
+    @Test
+    public void givenComposer_whenGetResultTwice_thenSameFailuresWithoutDuplicateTransform() {
+        // Given.
+        final PCollection<String> words = pipeline.apply("Create words", Create.of("xb"));
+
+        final CollectionComposer<String> composer = CollectionComposer.of(words)
+                .apply(STEP_1, MapElements
+                        .into(TypeDescriptors.strings())
+                        .via(CollectionComposerFailureHandlingTest::failIfPrefixed));
+
+        // When.
+        final Result<PCollection<String>, Failure> result1 = composer.getResult();
+        final Result<PCollection<String>, Failure> result2 = composer.getResult();
+
+        // Then.
+        assertThat(result2.failures()).isSameAs(result1.failures());
+        PAssert.that(toPipelineSteps(result1.failures())).containsInAnyOrder(STEP_1);
+
+        pipeline.run().waitUntilFinish();
+    }
+
     private static Iterable<String> oneOutputThenFail(final String word) {
         return () -> new Iterator<String>() {
             private boolean first = true;
@@ -221,7 +354,7 @@ public class CollectionComposerFailureHandlingTest implements Serializable {
     }
 
     private static PCollection<String> toPipelineSteps(final PCollection<Failure> failures) {
-        return failures.apply("To pipeline steps", MapElements
+        return failures.apply("To pipeline steps " + failures.getName(), MapElements
                 .into(TypeDescriptors.strings())
                 .via(Failure::getPipelineStep));
     }
@@ -259,6 +392,21 @@ public class CollectionComposerFailureHandlingTest implements Serializable {
         return StreamSupport.stream(counters.spliterator(), false)
                 .mapToLong(MetricResult::getAttempted)
                 .sum();
+    }
+
+    /**
+     * Custom DoFn with the default constructor: the type descriptors are resolved by Beam from the class.
+     */
+    private static class WordLengthOrFailIfPrefixedFn extends BaseElementFn<String, Integer> {
+
+        @ProcessElement
+        public void processElement(ProcessContext ctx) {
+            try {
+                ctx.output(failIfPrefixed(ctx.element()).length());
+            } catch (Throwable throwable) {
+                outputFailure(ctx, throwable);
+            }
+        }
     }
 
     /**

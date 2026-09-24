@@ -14,6 +14,8 @@
 
 This module allows simplifying error handling with Apache Beam Java.
 
+> Asgarde also exists for **Apache Beam Python**: [pasgarde](https://github.com/tosun-si/pasgarde) (`pip install asgarde`).
+
 ## Compatibility with Apache Beam
 
 Starting with Asgarde `1.0.0`, Asgarde is **no longer tied to a specific Beam version**:
@@ -788,7 +790,8 @@ Asgarde must never make a job fail because of the error handling itself:
 * **Reused DoFn instances**: the same `DoFn` instance can be applied in several steps, each failure keeps the name
   of its own step.
 * **Stable transform names**: the failures are flattened in a `Get all failures of <last step name>` transform,
-  with a deterministic name, needed by Dataflow streaming updates (`--update`).
+  with a deterministic name, needed by Dataflow streaming updates (`--update`). `getResult()` can be called
+  several times, the failures transform is applied once.
 
 ### Failure metrics
 
