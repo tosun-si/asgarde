@@ -1,0 +1,23 @@
+---
+title: Failure handling guarantees
+description: The error handling of Asgarde never makes a job fail.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A dead letter queue is useless if the error handling itself can make the job fail. Asgarde guarantees the
+following behaviors, each covered by tests in both libraries.
+
+| Case | Behavior | Java | Python |
+|---|---|:---:|:---:|
+| Exception that can't be serialized (holding a client, a lock...) | Replaced by a serializable copy keeping the type, the message and the stack trace | `SerializableThrowable` | `SerializableException` |
+| Input element whose conversion to string fails (`null`, failing `toString`/`__str__`, dict with non JSON types) | Regular failure, never a crash | ✅ | ✅ |
+| Memory errors | Re-raised to the runner, not sent to the failures: the worker is unstable | `VirtualMachineError` (`OutOfMemoryError`, `StackOverflowError`) | `MemoryError` |
+| FlatMap whose iterable fails in the middle | Failure only: the outputs are materialized first, no partial outputs duplicated when the failure is replayed | ✅ | ✅ |
+| Same `DoFn` instance applied in several steps | Each failure keeps the name of its own step | ✅ | ✅ |
+| Transform names | Failures flattened once in a deterministic `Get all failures of <last step name>` transform | ✅ | ✅ |
+
+<Aside title="Dataflow streaming updates">
+Updating a running streaming job (`--update`) requires stable transform names. The failures transform has a
+deterministic name, and getting the failures several times doesn't apply it twice.
+</Aside>

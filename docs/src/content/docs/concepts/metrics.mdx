@@ -1,0 +1,46 @@
+---
+title: Failure metrics
+description: Beam counters of the failures, per step.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Each failure increments a Beam **counter**, visible in the runner UI (e.g. the job metrics of Dataflow) and
+queryable from the pipeline result:
+
+- namespace: `asgarde-failures`
+- name: the pipeline step name
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+final PipelineResult pipelineResult = pipeline.run();
+pipelineResult.waitUntilFinish();
+
+final MetricQueryResults metrics = pipelineResult.metrics().queryMetrics(MetricsFilter.builder()
+        .addNameFilter(MetricNameFilter.inNamespace(FailureMetrics.NAMESPACE))
+        .build());
+
+for (MetricResult<Long> counter : metrics.getCounters()) {
+    System.out.println(counter.getName().getName() + ": " + counter.getAttempted() + " failures");
+}
+```
+
+The counters apply to the `MapElements`/`FlatMapElements` steps, the Asgarde `DoFn` classes and the custom `DoFn`
+classes calling `outputFailure(ctx, throwable)`. Custom exception handlers given with `exceptionsVia` are not counted.
+</TabItem>
+<TabItem label="Python">
+```python
+from apache_beam.metrics.metric import MetricsFilter
+
+from asgarde import FAILURES_METRICS_NAMESPACE
+
+result = pipeline.run()
+result.wait_until_finish()
+
+counters = result.metrics().query(MetricsFilter().with_namespace(FAILURES_METRICS_NAMESPACE))['counters']
+for counter in counters:
+    print(f'{counter.key.metric.name}: {counter.committed} failures')
+```
+</TabItem>
+</Tabs>

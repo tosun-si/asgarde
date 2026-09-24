@@ -1,0 +1,17 @@
+---
+title: Roadmap
+description: Ideas for the next versions of Asgarde.
+---
+
+Ideas for the next versions, for Java and Python. Feedback and contributions are welcome: open an issue on
+[Asgarde Java](https://github.com/tosun-si/asgarde/issues) or [Asgarde Python](https://github.com/tosun-si/pasgarde/issues).
+
+- **Richer `Failure` model**: exception type, message and stack trace stored as strings, a timestamp, and a Beam
+  schema to write the failures directly to BigQuery.
+- **Replayable input element**: pluggable element serializer (JSON, bytes...) instead of the string representation,
+  to replay the failures from the dead letter queue and avoid leaking sensitive data.
+- **Any Beam transform in the Python composer**: plug a custom `DoFn` or `PTransform` using the Beam native error
+  handling (`with_exception_handling`).
+- **Global failure handler** (Java): inject a custom `Failure` factory and error handling function once.
+- **Integration with the Beam native error handling** (`ErrorHandler`, `BadRecord`) used by the Beam IOs.
+- **Ready-to-use failure sinks**: BigQuery, GCS, Pub/Sub.

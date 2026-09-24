@@ -9,10 +9,13 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-extensions-7F52FF?logo=kotlin&logoColor=white)](#asgarde-with-kotlin)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=tosun-si_asgarde&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=tosun-si_asgarde)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=tosun-si_asgarde&metric=coverage)](https://sonarcloud.io/summary/new_code?id=tosun-si_asgarde)
+[![Docs](https://img.shields.io/badge/docs-tosun--si.github.io%2Fasgarde-E25A1C?logo=astro&logoColor=white)](https://tosun-si.github.io/asgarde/)
 [![License: MIT](https://img.shields.io/github/license/tosun-si/asgarde)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/tosun-si/asgarde?style=social)](https://github.com/tosun-si/asgarde)
 
 This module allows simplifying error handling with Apache Beam Java.
+
+📖 **Documentation (Java, Kotlin and Python): https://tosun-si.github.io/asgarde/**
 
 > Asgarde also exists for **Apache Beam Python**: [pasgarde](https://github.com/tosun-si/pasgarde) (`pip install asgarde`).
 
@@ -1322,7 +1325,6 @@ Ideas for the next versions, feedback and contributions are welcome (see [Contri
   `apply` calls.
 - **Integration with the Beam native error handling** (`ErrorHandler`, `BadRecord`) used by the Beam IOs.
 - **Ready-to-use failure sinks**: BigQuery, GCS, Pub/Sub.
-- **Documentation site** covering the Java and Python versions.
 
 ## Contributing
 

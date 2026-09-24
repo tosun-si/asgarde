@@ -1,0 +1,85 @@
+---
+title: Failure
+description: The Failure object sent to the dead letter queue.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+Each error caught in a step gives a `Failure` object, sent to the failures `PCollection`.
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+public class Failure implements Serializable {
+    private final String pipelineStep;   // Name of the step
+    private final String inputElement;   // Input element, as a string (toString)
+    private final Throwable exception;   // Exception raised by the step
+
+    public static <T> Failure from(String pipelineStep, WithFailures.ExceptionElement<T> exceptionElement);
+    public static <T> Failure from(String pipelineStep, T element, Throwable exception);
+
+    // Getters...
+}
+```
+
+If the exception can't be serialized, it's replaced by a `SerializableThrowable` keeping the original class name,
+message, stack trace and causes (see [Failure handling guarantees](/asgarde/concepts/guarantees/)).
+</TabItem>
+<TabItem label="Python">
+```python
+@dataclass
+class Failure:
+    pipeline_step: str       # Name of the step
+    input_element: str       # Input element, as a string (JSON for a dict)
+    exception: Exception     # Exception raised by the step (always picklable)
+    stack_trace: str = ''    # Stack trace, as a string
+
+    @classmethod
+    def from_exception(cls, pipeline_step: str, element: Any, exception: Exception) -> 'Failure': ...
+```
+
+If the exception can't be pickled, it's replaced by a `SerializableException` keeping the original type and
+message. The stack trace is kept as a string because a pickled exception loses its traceback.
+</TabItem>
+</Tabs>
+
+## Input element format
+
+The input element is stored as a string:
+
+- **Java**: the `toString()` of the element.
+- **Python**: the JSON string of a `dict` (non JSON types like `datetime` or `bytes` converted with `str`), the `str()`
+  of any other element.
+
+To control the format, implement the string representation of your objects, e.g. as JSON:
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+public class Team implements Serializable {
+    // Fields...
+
+    @Override
+    public String toString() {
+        // Jackson is already a dependency of Beam.
+        return JsonUtil.serialize(this);
+    }
+}
+```
+</TabItem>
+<TabItem label="Python">
+```python
+@dataclass
+class Team:
+    name: str
+
+    def __str__(self) -> str:
+        return json.dumps(dataclasses.asdict(self))
+```
+</TabItem>
+</Tabs>
+
+<Aside type="caution">
+The input element ends up in your dead letter queue: avoid writing sensitive data in the string representation of
+your objects.
+</Aside>

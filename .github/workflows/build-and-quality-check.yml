@@ -4,8 +4,10 @@ on:
   # Feature branches are tested through their pull request, not on push (avoids duplicate runs).
   push:
     branches: [ main ]
+    paths-ignore: [ 'docs/**', '.github/workflows/docs.yml' ]
   pull_request:
     branches: [ main ]
+    paths-ignore: [ 'docs/**', '.github/workflows/docs.yml' ]
   # Weekly Beam compatibility check: runs the test suite against the latest Beam release
   # without releasing Asgarde. Opens an issue if a new Beam version breaks Asgarde.
   schedule:

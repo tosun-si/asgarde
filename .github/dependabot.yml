@@ -26,3 +26,12 @@ updates:
         patterns: [ 'org.apache.maven.plugins:*', 'org.jacoco:*', 'org.apache.avro:*', 'org.sonatype.central:*' ]
       test-dependencies:
         patterns: [ 'org.assertj:*', 'org.projectlombok:*', 'junit:*', 'org.hamcrest:*', 'pl.pragmatists:*' ]
+
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: monthly
+    labels: [ dependencies, documentation ]
+    groups:
+      docs:
+        patterns: [ '*' ]

@@ -1,0 +1,93 @@
+---
+title: Quick start
+description: A complete pipeline with Asgarde and a dead letter queue.
+---
+
+import { Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+
+This example reads numbers as strings, applies a few steps that can fail (`"not a number"` can't be parsed), writes the good outputs and sends **all the failures of
+all the steps** to a dead letter queue.
+
+<Steps>
+1. Create a `CollectionComposer` from the input `PCollection`.
+2. Chain the steps: each step catches its errors in a [`Failure`](/asgarde/concepts/failure/) object.
+3. Get the result: the outputs of the last step and the failures of all the steps.
+4. Write the failures to your dead letter sink (BigQuery, GCS, Pub/Sub...).
+</Steps>
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+final Pipeline pipeline = Pipeline.create(options);
+
+final PCollection<String> values = pipeline.apply("Read values", Create.of("1", "2", "not a number", "4"));
+
+final WithFailures.Result<PCollection<Integer>, Failure> result = CollectionComposer.of(values)
+        .apply("Trim", MapElements.into(TypeDescriptors.strings()).via((String value) -> value.trim()))
+        .apply("Parse", MapElementFn.into(TypeDescriptors.integers()).via((String value) -> Integer.parseInt(value)))
+        .apply("Keep even numbers", FilterFn.by(number -> number % 2 == 0))
+        .getResult();
+
+// Good outputs.
+result.output()
+        .apply("To string", MapElements.into(TypeDescriptors.strings()).via(String::valueOf))
+        .apply("Write outputs", TextIO.write().to("gs://my-bucket/outputs/result"));
+
+// Dead letter queue: the failures of all the steps.
+result.failures()
+        .apply("Failure to string", MapElements.into(TypeDescriptors.strings()).via(Failure::toString))
+        .apply("Write failures", TextIO.write().to("gs://my-bucket/failures/failure"));
+
+pipeline.run();
+```
+</TabItem>
+<TabItem label="Kotlin">
+```kotlin
+val pipeline = Pipeline.create(options)
+
+val values: PCollection<String> = pipeline.apply("Read values", Create.of("1", "2", "not a number", "4"))
+
+val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(values)
+    .map("Trim") { value -> value.trim() }
+    .mapFn("Parse", { value -> value.toInt() })
+    .filter("Keep even numbers") { number -> number % 2 == 0 }
+    .result
+
+// Dead letter queue: the failures of all the steps.
+result.failures()
+    .apply("Failure to string", MapElements.into(TypeDescriptors.strings()).via(SerializableFunction { it.toString() }))
+    .apply("Write failures", TextIO.write().to("gs://my-bucket/failures/failure"))
+
+pipeline.run()
+```
+</TabItem>
+<TabItem label="Python">
+```python
+import apache_beam as beam
+
+from asgarde import CollectionComposer
+
+with beam.Pipeline(options=options) as p:
+    values = p | 'Read values' >> beam.Create(['1', '2', 'not a number', '4'])
+
+    result = (CollectionComposer.of(values)
+              .map('Trim', lambda value: value.strip())
+              .map('Parse', int)
+              .filter('Keep even numbers', lambda number: number % 2 == 0))
+
+    # Good outputs.
+    result.outputs | 'Write outputs' >> beam.io.WriteToText('gs://my-bucket/outputs/result')
+
+    # Dead letter queue: the failures of all the steps.
+    (result.failures
+     | 'Failure to string' >> beam.Map(str)
+     | 'Write failures' >> beam.io.WriteToText('gs://my-bucket/failures/failure'))
+```
+</TabItem>
+</Tabs>
+
+Here the outputs are `2` and `4`, and the failures contain one `Failure` for the `Parse` step, with the input
+element `not a number` and the `NumberFormatException` (Java) or `ValueError` (Python). Each `Failure` contains the
+step name, the input element and the exception. See
+[Failure](/asgarde/concepts/failure/) for the details, and [Failure metrics](/asgarde/concepts/metrics/) to monitor
+the number of failures per step.

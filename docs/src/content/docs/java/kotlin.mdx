@@ -1,0 +1,78 @@
+---
+title: Kotlin extensions
+description: Concise Kotlin syntax for the CollectionComposer.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Beam Java can be used with Kotlin. Asgarde provides Kotlin **extensions** on the `CollectionComposer`, included in the
+same artifact as the Java library. Import them with:
+
+```kotlin
+import fr.groupbees.asgarde.*
+```
+
+```kotlin
+val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(words)
+    .map("Map") { word -> word + "Test" }
+    .flatMap("FlatMap") { line -> line.split(" ") }
+    .mapFn("Word count", { word -> 1 / word.length })
+    .result
+```
+
+The extensions can be mixed with the Java `apply` methods. For `MapElements.via`, give the type of the lambda,
+because Kotlin can't choose between `ProcessFunction` and `SerializableFunction`:
+
+```kotlin
+CollectionComposer.of(words)
+    .apply("Map", MapElements.into(TypeDescriptors.strings()).via(SerializableFunction { word: String -> word + "Test" }))
+    .mapFn("Word count", { word -> 1 / word.length })
+    .result
+```
+
+## Available extensions
+
+| Extension | Java equivalent |
+|---|---|
+| `map(name) { ... }` | `MapElements` |
+| `flatMap(name) { ... }` | `FlatMapElements` |
+| `mapWithFailure(name, transform, exceptionHandler)` | `MapElements` with `exceptionsVia` |
+| `flatMapWithFailure(name, transform, exceptionHandler)` | `FlatMapElements` with `exceptionsVia` |
+| `mapFn(name, transform, setupAction, ...)` | `MapElementFn` |
+| `flatMapFn(name, transform, setupAction, ...)` | `FlatMapElementFn` |
+| `mapFnWithContext(name, transform, setupAction, ..., sideInputs)` | `MapProcessContextFn` |
+| `flatMapFnWithContext(name, transform, setupAction, ..., sideInputs)` | `FlatMapProcessContextFn` |
+| `filter(name) { ... }` | `FilterFn` |
+
+The output types are inferred with Kotlin reified generics, and the step name is optional (a default name is built
+from the output type).
+
+## Lifecycle actions and side inputs
+
+```kotlin
+CollectionComposer.of(teams)
+    .mapFnWithContext(
+        name = "To other team with side input",
+        transform = { ctx -> toOtherTeamWithSideInput(sideInput, ctx) },
+        setupAction = { println("Setup action") },
+        teardownAction = { println("Teardown action") },
+        sideInputs = listOf(sideInput)
+    )
+    .result
+```
+
+## Custom exception handler
+
+```kotlin
+CollectionComposer.of(teams)
+    .mapWithFailure(
+        "To team with PSG error",
+        { team -> toTeamWithPsgError(team) },
+        { exElt -> Failure.from("To team with PSG error", exElt) }
+    )
+    .result
+```
+
+<Aside type="caution">
+The failure counters are not incremented by custom exception handlers (`mapWithFailure`, `flatMapWithFailure`).
+</Aside>
