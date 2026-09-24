@@ -41,12 +41,21 @@ public class Failure implements Serializable {
         requireNonNull(pipelineStep);
         requireNonNull(exceptionElement);
 
-        final T inputElement = exceptionElement.element();
-        return new Failure(pipelineStep, inputElement.toString(), exceptionElement.exception());
+        return new Failure(
+                pipelineStep,
+                elementAsString(exceptionElement.element()),
+                SerializableThrowable.of(exceptionElement.exception())
+        );
     }
 
     /**
      * Build a {@link fr.groupbees.asgarde.Failure} object from a generic input element and {@link java.lang.Throwable}.
+     *
+     * <p>
+     * If the exception can't be serialized (e.g. it holds a non serializable field), it's replaced by a
+     * {@link SerializableThrowable} keeping its class name, message, stack trace and causes, instead of making the
+     * job fail when the failure is encoded.
+     * </p>
      *
      * @param pipelineStep the current pipeline step
      * @param element      a T object
@@ -57,10 +66,20 @@ public class Failure implements Serializable {
     public static <T> Failure from(final String pipelineStep,
                                    final T element,
                                    final Throwable exception) {
-        requireNonNull(element);
         requireNonNull(exception);
 
-        return new Failure(pipelineStep, element.toString(), exception);
+        return new Failure(pipelineStep, elementAsString(element), SerializableThrowable.of(exception));
+    }
+
+    /**
+     * Never fails: a null element or an element whose {@code toString} throws must not break the error handling.
+     */
+    private static String elementAsString(final Object element) {
+        try {
+            return String.valueOf(element);
+        } catch (RuntimeException e) {
+            return "<toString() of " + element.getClass().getName() + " failed: " + e + ">";
+        }
     }
 
     /**

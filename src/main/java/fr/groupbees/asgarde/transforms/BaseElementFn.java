@@ -1,9 +1,14 @@
 package fr.groupbees.asgarde.transforms;
 
 import fr.groupbees.asgarde.Failure;
+import fr.groupbees.asgarde.FailureMetrics;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.util.SerializableUtils;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TypeDescriptor;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Base class for the custom DoFn that handle errors with {@link org.apache.beam.sdk.values.TupleTag}.
@@ -92,5 +97,60 @@ public abstract class BaseElementFn<InputT, OutputT> extends DoFn<InputT, Output
      */
     public void setPipelineStep(final String pipelineStep) {
         this.pipelineStep = pipelineStep;
+    }
+
+    /**
+     * Returns a copy of this DoFn bound to the given pipeline step.
+     *
+     * <p>
+     * A copy is needed because the same DoFn instance can be applied in several steps: mutating it would give
+     * the name of the last step to the failures of all the steps.
+     * </p>
+     *
+     * @param pipelineStep pipeline step concerned by the current transformation
+     * @return a copy of this DoFn with the given pipeline step
+     */
+    public BaseElementFn<InputT, OutputT> forPipelineStep(final String pipelineStep) {
+        final BaseElementFn<InputT, OutputT> copy = SerializableUtils.clone(this);
+        copy.inputType = inputType;
+        copy.outputType = outputType;
+        copy.pipelineStep = pipelineStep;
+
+        return copy;
+    }
+
+    /**
+     * Outputs a {@link Failure} for the current element in the failures tag and increments the failure counter
+     * of the pipeline step (see {@link FailureMetrics}).
+     *
+     * <p>
+     * JVM errors ({@link VirtualMachineError} like {@link OutOfMemoryError} or {@link StackOverflowError}) are
+     * rethrown: the worker is in an unstable state and the runner must handle them, not the dead letter queue.
+     * </p>
+     *
+     * @param ctx       the current process context
+     * @param throwable the error raised for the current element
+     */
+    protected void outputFailure(final ProcessContext ctx, final Throwable throwable) {
+        if (throwable instanceof VirtualMachineError) {
+            throw (VirtualMachineError) throwable;
+        }
+
+        FailureMetrics.counter(pipelineStep).inc();
+        ctx.output(failuresTag, Failure.from(pipelineStep, ctx.element(), throwable));
+    }
+
+    /**
+     * Copies the given outputs in a list, to consume the whole {@link Iterable} before emitting any output.
+     *
+     * @param outputs  the outputs of a flatMap operation
+     * @param <OutputT> the output type
+     * @return the outputs as a list
+     */
+    protected static <OutputT> List<OutputT> materialize(final Iterable<OutputT> outputs) {
+        final List<OutputT> result = new ArrayList<>();
+        outputs.forEach(result::add);
+
+        return result;
     }
 }

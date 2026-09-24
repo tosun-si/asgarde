@@ -1,8 +1,9 @@
 name: Build project and check quality
 
 on:
+  # Feature branches are tested through their pull request, not on push (avoids duplicate runs).
   push:
-    branches: [ main, feature/* ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   # Weekly Beam compatibility check: runs the test suite against the latest Beam release
