@@ -11,8 +11,8 @@ export default defineConfig({
 		starlight({
 			title: 'Asgarde',
 			description: 'Error handling and dead letter queues for Apache Beam, in Java, Kotlin and Python.',
-			logo: { src: './src/assets/asgarde-logo.gif', alt: 'Asgarde' },
-			favicon: '/favicon.gif',
+			logo: { src: './src/assets/asgarde-logo.png', alt: 'Asgarde' },
+			favicon: '/favicon.png',
 			customCss: ['./src/styles/custom.css'],
 			social: [
 				{ icon: 'github', label: 'Asgarde Java on GitHub', href: 'https://github.com/tosun-si/asgarde' },
