@@ -86,8 +86,9 @@ Beam). See [Compatibility](https://tosun-si.github.io/asgarde/project/compatibil
 
 ## Roadmap
 
-See the [roadmap](https://tosun-si.github.io/asgarde/project/roadmap/): richer `Failure` model, replayable input
-element, integration with the Beam native error handling, ready-to-use failure sinks...
+See the [roadmap](https://tosun-si.github.io/asgarde/project/roadmap/). Next, the 1.3.0 without breaking change: a
+richer `Failure` (exception type, message, stack trace, timestamp), the failures to BigQuery with a documented
+schema, and the integration with the Beam native error handling (`ErrorHandler`, `BadRecord`).
 
 ## Contributing
 
