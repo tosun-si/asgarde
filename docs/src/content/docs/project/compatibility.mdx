@@ -1,0 +1,31 @@
+---
+title: Compatibility
+description: Supported Beam, Java, Kotlin and Python versions.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Asgarde is **not tied to a Beam version**: your pipeline brings its own Beam version. The CI tests every push and
+runs a weekly check against the **latest Beam release**, and opens an issue if a Beam release breaks Asgarde. A new
+Asgarde version is only released when a Beam release requires a change.
+
+## Java and Kotlin
+
+| Asgarde | Beam | Java |
+|---|---|---|
+| `>= 1.0.0` | `>= 2.70.0` (`provided` dependency) | 8+ with Beam `2.70.x`–`2.73.x`, 11+ with Beam `>= 2.74.0` (required by Beam) |
+| `0.10.0`–`0.49.0` | One Asgarde version per Beam version (`0.49.0` = Beam `2.70.0`) | |
+
+The Kotlin extensions are compiled with Kotlin 1.9 and work with Kotlin 1.9 and 2.x projects.
+
+## Python
+
+| Asgarde | Beam | Python |
+|---|---|---|
+| `>= 1.0.0` | `>= 2.60.0` | `3.10` to `3.14` |
+| `0.16.0` | `>= 2.37.0` | |
+
+<Aside>
+The Java and Python libraries have their own versions: Asgarde Java `1.1.0` and Asgarde Python `1.0.0` are the first
+versions with the failure handling guarantees and the failure metrics.
+</Aside>

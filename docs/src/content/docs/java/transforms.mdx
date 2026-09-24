@@ -1,0 +1,96 @@
+---
+title: Transforms
+description: The Asgarde DoFn classes for Java, with built-in error handling.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Asgarde exposes generic `DoFn` classes with built-in error handling: the `try/catch` block and the tuple tags are
+handled for you. Apply them with the [`CollectionComposer`](/asgarde/concepts/collection-composer/).
+
+| Class | Beam equivalent | Function |
+|---|---|---|
+| `MapElementFn` | `MapElements` | `InputT -> OutputT` |
+| `MapProcessContextFn` | `MapElements` with the `ProcessContext` | `ProcessContext -> OutputT` |
+| `FlatMapElementFn` | `FlatMapElements` | `InputT -> Iterable<OutputT>` |
+| `FlatMapProcessContextFn` | `FlatMapElements` with the `ProcessContext` | `ProcessContext -> Iterable<OutputT>` |
+| `FilterFn` | `Filter` | `InputT -> Boolean` |
+
+<Aside>
+Beam can't infer the output type of a generic `DoFn`: the output type descriptor is given with `into(...)`, it's used
+to set the default coder of the output.
+</Aside>
+
+## MapElementFn
+
+The equivalent of `MapElements`, created from the output type descriptor, with a `SerializableFunction` from the
+input to the output:
+
+```java
+final PCollection<Integer> output = CollectionComposer.of(words)
+        .apply("Word count", MapElementFn
+                .into(TypeDescriptors.integers())
+                .via((String word) -> 1 / word.length()))
+        .getResult()
+        .output();
+```
+
+## MapProcessContextFn
+
+Works like `MapElementFn`, but the function takes the Beam `ProcessContext`, to access technical fields (timestamp,
+window...) or [side inputs](/asgarde/java/side-inputs-lifecycle/). It's created from the input class, because the
+function doesn't bring the input type:
+
+```java
+final PCollection<Integer> output = CollectionComposer.of(words)
+        .apply("Word count", MapProcessContextFn
+                .from(String.class)
+                .into(TypeDescriptors.integers())
+                .via(ctx -> 1 / ctx.element().length()))
+        .getResult()
+        .output();
+```
+
+## FlatMapElementFn
+
+Same principle as `MapElementFn` for a flatMap operation:
+
+```java
+final PCollection<Player> players = CollectionComposer.of(teams)
+        .apply("To players", FlatMapElementFn
+                .into(TypeDescriptor.of(Player.class))
+                .via(Team::getPlayers))
+        .getResult()
+        .output();
+```
+
+## FlatMapProcessContextFn
+
+Same principle as `MapProcessContextFn` for a flatMap operation:
+
+```java
+final PCollection<Player> players = CollectionComposer.of(teams)
+        .apply("To players", FlatMapProcessContextFn
+                .from(Team.class)
+                .into(TypeDescriptor.of(Player.class))
+                .via(ctx -> ctx.element().getPlayers()))
+        .getResult()
+        .output();
+```
+
+<Aside>
+For the flatMap classes, the outputs of an element are materialized before being emitted: an `Iterable` failing in
+the middle gives a failure only, not partial outputs.
+</Aside>
+
+## FilterFn
+
+Like the Beam `Filter`, with error handling (the Beam `Filter` has no error handling). It takes a predicate, no
+output type descriptor is needed because the output type and coder are the ones of the input:
+
+```java
+final PCollection<String> longWords = CollectionComposer.of(words)
+        .apply("Long words", FilterFn.by(word -> word.length() > 3))
+        .getResult()
+        .output();
+```

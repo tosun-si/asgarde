@@ -1,0 +1,71 @@
+---
+title: Asgarde
+description: Error handling and dead letter queues for Apache Beam, in Java, Kotlin and Python.
+template: splash
+hero:
+  tagline: Error handling and dead letter queues for Apache Beam, without the boilerplate. For Java, Kotlin and Python.
+  image:
+    file: ../../assets/asgarde-logo.gif
+  actions:
+    - text: Get started
+      link: /asgarde/getting-started/why-asgarde/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/tosun-si/asgarde
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+final WithFailures.Result<PCollection<Integer>, Failure> result = CollectionComposer.of(words)
+        .apply("Map", MapElements.into(TypeDescriptors.strings()).via((String word) -> word + "Test"))
+        .apply("Filter", FilterFn.by(word -> word.length() > 3))
+        .apply("Word length", MapElementFn.into(TypeDescriptors.integers()).via(word -> 1 / word.length()))
+        .getResult();
+
+final PCollection<Integer> outputs = result.output();
+final PCollection<Failure> failures = result.failures(); // All the failures of all the steps
+```
+</TabItem>
+<TabItem label="Kotlin">
+```kotlin
+val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(words)
+    .map("Map") { word -> word + "Test" }
+    .filter("Filter") { word -> word.length > 3 }
+    .mapFn("Word length", { word -> 1 / word.length })
+    .result
+```
+</TabItem>
+<TabItem label="Python">
+```python
+result = (CollectionComposer.of(words)
+          .map('Map', lambda word: f'{word}Test')
+          .filter('Filter', lambda word: len(word) > 3)
+          .map('Word length', lambda word: 1 / len(word)))
+
+outputs = result.outputs
+failures = result.failures  # All the failures of all the steps
+```
+</TabItem>
+</Tabs>
+
+<CardGrid stagger>
+	<Card title="One place for all the errors" icon="list-format">
+		Each step catches its errors in a `Failure` object. The composer gathers the failures of all the steps in a
+		single `PCollection`, ready for your dead letter queue.
+	</Card>
+	<Card title="Keeps the fluent style" icon="seti:pipeline">
+		Chain your transforms as usual: no tuple tags, no `try/catch`, no `Flatten` of the failures in your code.
+	</Card>
+	<Card title="Never breaks your job" icon="approve-check">
+		Non serializable exceptions, failing `toString`, partial flatMap outputs, unstable transform names: the error
+		handling itself can't make the job fail.
+	</Card>
+	<Card title="Not tied to a Beam version" icon="rocket">
+		Your pipeline brings its own Beam version. The CI tests every week against the latest Beam release.
+	</Card>
+</CardGrid>

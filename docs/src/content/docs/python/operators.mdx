@@ -1,0 +1,54 @@
+---
+title: Operators
+description: The map, flat_map and filter operators of the Python CollectionComposer.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The Python `CollectionComposer` exposes the `map`, `flat_map` and `filter` operators. Each operator takes a step
+name and a function, which can be a lambda, a function or a method.
+
+```python
+from asgarde import CollectionComposer
+```
+
+## map
+
+```python
+result = (CollectionComposer.of(input_teams)
+          .map('Map with country', lambda name: TeamInfo(name=name, country=team_countries[name], city=''))
+          .map('Map with city', to_team_with_city))
+```
+
+## flat_map
+
+The function returns an iterable:
+
+```python
+result = (CollectionComposer.of(teams)
+          .flat_map('To players', lambda team: team.players))
+```
+
+<Aside>
+The outputs of an element are materialized before being emitted: a generator failing in the middle gives a failure
+only, not partial outputs.
+</Aside>
+
+## filter
+
+The function returns a boolean:
+
+```python
+result = (CollectionComposer.of(teams_info)
+          .filter('Filter french teams', lambda info: info.country == 'France'))
+```
+
+## Result
+
+```python
+outputs: PCollection[TeamInfo] = result.outputs    # Output of the last step
+failures: PCollection[Failure] = result.failures   # Failures of all the steps
+```
+
+Only `Exception` subclasses are caught: `KeyboardInterrupt`, `SystemExit` and `MemoryError` are raised to the
+runner.

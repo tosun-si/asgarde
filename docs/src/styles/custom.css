@@ -1,0 +1,12 @@
+/* Apache Beam orange as accent color. */
+:root {
+	--sl-color-accent-low: #3b1d0f;
+	--sl-color-accent: #e25a1c;
+	--sl-color-accent-high: #ffd9c7;
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-low: #ffe3d6;
+	--sl-color-accent: #c24a12;
+	--sl-color-accent-high: #5c2208;
+}

@@ -1,0 +1,117 @@
+---
+title: CollectionComposer
+description: The CollectionComposer chains the steps of a flow and gathers their failures.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+`CollectionComposer` is the entry point of Asgarde. It wraps a `PCollection`, applies the steps of the flow with error
+handling, and keeps the failures of all the steps.
+
+## Create a composer
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+CollectionComposer.of(wordPCollection)
+```
+</TabItem>
+<TabItem label="Kotlin">
+```kotlin
+CollectionComposer.of(wordPCollection)
+```
+</TabItem>
+<TabItem label="Python">
+```python
+CollectionComposer.of(word_pcollection)
+```
+</TabItem>
+</Tabs>
+
+## Chain the steps
+
+Each step has a **name**, used as the Beam transform name and as the `pipelineStep` of its failures.
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+The `apply` method accepts:
+
+- the Beam `MapElements` and `FlatMapElements`: the composer adds `exceptionsInto` and `exceptionsVia` for you;
+- the Asgarde `DoFn` classes: `MapElementFn`, `MapProcessContextFn`, `FlatMapElementFn`, `FlatMapProcessContextFn`
+  and `FilterFn` (see [Transforms](/asgarde/java/transforms/));
+- your own `DoFn` classes extending `BaseElementFn` (see [Custom DoFn](/asgarde/java/custom-dofn/));
+- any `PTransform` returning a `WithFailures.Result<PCollection<T>, Failure>`.
+
+```java
+CollectionComposer.of(input)
+        .apply("Map", MapElements.into(TypeDescriptors.integers()).via((String word) -> 1 / word.length()))
+        .apply("Filter", FilterFn.by(count -> count > 0))
+```
+
+`MapElements` and `FlatMapElements` with your own `exceptionsInto`/`exceptionsVia` are accepted too, as long as they
+produce Asgarde `Failure` objects:
+
+```java
+CollectionComposer.of(input)
+        .apply("Map", MapElements
+                .into(TypeDescriptors.integers())
+                .via((String word) -> 1 / word.length())
+                .exceptionsInto(TypeDescriptor.of(Failure.class))
+                .exceptionsVia(exElt -> Failure.from("Map", exElt)))
+```
+</TabItem>
+<TabItem label="Kotlin">
+The Kotlin extensions give a concise syntax for each kind of step (see [Kotlin extensions](/asgarde/java/kotlin/)):
+
+```kotlin
+CollectionComposer.of(input)
+    .map("Map") { word -> 1 / word.length }
+    .filter("Filter") { count -> count > 0 }
+```
+</TabItem>
+<TabItem label="Python">
+The composer exposes the `map`, `flat_map` and `filter` operators (see [Operators](/asgarde/python/operators/)):
+
+```python
+(CollectionComposer.of(input)
+ .map('Map', lambda word: 1 / len(word))
+ .filter('Filter', lambda count: count > 0))
+```
+</TabItem>
+</Tabs>
+
+## Get the result
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+`getResult()` returns a Beam `WithFailures.Result` with the output of the last step and the failures of all the
+steps:
+
+```java
+final WithFailures.Result<PCollection<Integer>, Failure> result = composer.getResult();
+
+final PCollection<Integer> output = result.output();
+final PCollection<Failure> failures = result.failures();
+```
+</TabItem>
+<TabItem label="Kotlin">
+```kotlin
+val result: Result<PCollection<Int>, Failure> = composer.result
+
+val output: PCollection<Int> = result.output()
+val failures: PCollection<Failure> = result.failures()
+```
+</TabItem>
+<TabItem label="Python">
+```python
+outputs = composer.outputs    # Output of the last step
+failures = composer.failures  # Failures of all the steps
+```
+</TabItem>
+</Tabs>
+
+<Aside>
+The failures are flattened once, in a transform named `Get all failures of <last step name>`. This name is
+deterministic, which Dataflow streaming updates (`--update`) need. See
+[Failure handling guarantees](/asgarde/concepts/guarantees/).
+</Aside>

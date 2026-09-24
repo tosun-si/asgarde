@@ -1,0 +1,49 @@
+---
+title: Side inputs and lifecycle
+description: Side inputs and DoFn lifecycle actions with the Python CollectionComposer.
+---
+
+## Side inputs
+
+The extra arguments of `map`, `flat_map` and `filter` are passed to the Beam `ParDo`, as with the usual Beam syntax:
+side inputs (`AsDict`, `AsList`, `AsSingleton`...) can be given as keyword or positional arguments.
+
+```python
+def to_team_with_country(team_name: str, team_countries: dict[str, str]) -> TeamInfo:
+    return TeamInfo(name=team_name, country=team_countries[team_name], city='')
+
+countries = p | 'Countries' >> beam.Create(team_countries)
+
+# Keyword argument.
+result = (CollectionComposer.of(input_teams)
+          .map('Map with country', to_team_with_country, team_countries=AsDict(countries)))
+
+# Positional argument.
+result = (CollectionComposer.of(input_teams)
+          .map('Map with country', to_team_with_country, AsDict(countries)))
+```
+
+## DoFn lifecycle actions
+
+`map` and `flat_map` accept actions executed in the `DoFn` lifecycle methods. They are **keyword-only** arguments,
+taking a function without parameter:
+
+| Argument | Lifecycle method |
+|---|---|
+| `setup_action` | `setup` |
+| `start_bundle_action` | `start_bundle` |
+| `finish_bundle_action` | `finish_bundle` |
+| `teardown_action` | `teardown` |
+
+```python
+(CollectionComposer.of(input_teams)
+ .map('Map to team info',
+      lambda team_name: TeamInfo(name=team_name, country='test', city='test'),
+      setup_action=lambda: print('Setup action'),
+      start_bundle_action=lambda: print('Start bundle action'),
+      finish_bundle_action=lambda: print('Finish bundle action'),
+      teardown_action=lambda: print('Teardown action')))
+```
+
+See the [Beam ParDo documentation](https://beam.apache.org/documentation/transforms/python/elementwise/pardo/) for the
+DoFn lifecycle.

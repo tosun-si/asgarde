@@ -1,0 +1,52 @@
+---
+title: Installation
+description: Install Asgarde for Java, Kotlin or Python.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+Asgarde doesn't bring its own Beam version: **your pipeline declares Beam**, as any Beam pipeline already does.
+See [Compatibility](/asgarde/project/compatibility/) for the supported Beam and language versions.
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+The library is published on [Maven Central](https://central.sonatype.com/artifact/fr.groupbees/asgarde).
+
+**Maven**
+
+```xml
+<dependency>
+    <groupId>fr.groupbees</groupId>
+    <artifactId>asgarde</artifactId>
+    <version>1.1.0</version>
+</dependency>
+```
+
+**Gradle**
+
+```kotlin
+implementation("fr.groupbees:asgarde:1.1.0")
+```
+</TabItem>
+<TabItem label="Kotlin">
+The Kotlin extensions are included in the same artifact as the Java library, published on
+[Maven Central](https://central.sonatype.com/artifact/fr.groupbees/asgarde).
+
+```kotlin
+implementation("fr.groupbees:asgarde:1.1.0")
+```
+
+<Aside>The extensions are compiled with Kotlin 1.9, they can be used from Kotlin 1.9 and 2.x projects.</Aside>
+</TabItem>
+<TabItem label="Python">
+The package is published on [PyPI](https://pypi.org/project/asgarde/) under the name `asgarde`.
+
+```bash
+# uv
+uv add asgarde
+
+# pip
+pip install asgarde
+```
+</TabItem>
+</Tabs>

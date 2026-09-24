@@ -1,0 +1,45 @@
+---
+title: Custom DoFn
+description: Write your own DoFn classes with the Asgarde error handling.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+When the Asgarde `DoFn` classes are not enough, write your own `DoFn` by extending `BaseElementFn`. It brings the
+output and failures tuple tags, and the `outputFailure` method:
+
+```java
+public class WordStatsFn extends BaseElementFn<String, WordStats> {
+
+    private final PCollectionView<String> wordDescription;
+
+    public WordStatsFn(final PCollectionView<String> wordDescription) {
+        super();
+        this.wordDescription = wordDescription;
+    }
+
+    @ProcessElement
+    public void processElement(ProcessContext ctx) {
+        try {
+            ctx.output(toWordStats(wordDescription, ctx));
+        } catch (Throwable throwable) {
+            // Outputs the Failure with the step name, increments the failure counter and rethrows JVM errors.
+            outputFailure(ctx, throwable);
+        }
+    }
+}
+```
+
+```java
+final PCollection<WordStats> output = CollectionComposer.of(words)
+        .apply("Word stats", new WordStatsFn(wordDescription), Collections.singleton(wordDescription))
+        .getResult()
+        .output();
+```
+
+With the default constructor (`super()`), the input and output types are inferred by Beam from the class, as for any
+non generic `DoFn`.
+
+<Aside>
+The composer applies a copy of the `DoFn` bound to the step name: the same instance can be applied in several steps.
+</Aside>

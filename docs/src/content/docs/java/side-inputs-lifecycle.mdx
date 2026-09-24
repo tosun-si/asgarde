@@ -1,0 +1,74 @@
+---
+title: Side inputs and lifecycle
+description: Side inputs and DoFn lifecycle actions with the Asgarde Java DoFn classes.
+---
+
+## Side inputs
+
+The `MapProcessContextFn` and `FlatMapProcessContextFn` classes give access to the `ProcessContext`, and so to the
+side inputs. Pass the side inputs as the last argument of `apply`:
+
+```java
+final PCollectionView<String> wordDescription = pipeline
+        .apply("Word description", Create.of("Word to describe football teams"))
+        .apply("As singleton view", View.asSingleton());
+
+final PCollection<WordStats> output = CollectionComposer.of(words)
+        .apply("Word stats", MapProcessContextFn
+                        .from(String.class)
+                        .into(TypeDescriptor.of(WordStats.class))
+                        .via(ctx -> toWordStats(wordDescription, ctx)),
+                Collections.singleton(wordDescription))
+        .getResult()
+        .output();
+```
+
+```java
+private static WordStats toWordStats(final PCollectionView<String> wordDescription,
+                                     final DoFn<String, WordStats>.ProcessContext ctx) {
+    final String word = ctx.element();
+
+    return new WordStats(
+            word,
+            1 / word.length(),
+            ctx.timestamp(),                 // Technical field of the context
+            ctx.sideInput(wordDescription)   // Side input value
+    );
+}
+```
+
+## DoFn lifecycle actions
+
+All the Asgarde `DoFn` classes except `FilterFn` accept actions executed in the `DoFn` lifecycle methods:
+
+| Method | Lifecycle method |
+|---|---|
+| `withSetupAction` | `@Setup` |
+| `withStartBundleAction` | `@StartBundle` |
+| `withFinishBundleAction` | `@FinishBundle` |
+| `withTeardownAction` | `@Teardown` |
+
+An action is a `SerializableAction`, a serializable `Runnable`:
+
+```java
+@FunctionalInterface
+public interface SerializableAction extends Serializable {
+    void execute();
+}
+```
+
+```java
+final PCollection<Integer> output = CollectionComposer.of(words)
+        .apply("Word count", MapElementFn
+                .into(TypeDescriptors.integers())
+                .via((String word) -> 1 / word.length())
+                .withSetupAction(() -> LOGGER.info("Setup of the word count in the worker"))
+                .withStartBundleAction(() -> LOGGER.info("Start bundle"))
+                .withFinishBundleAction(() -> LOGGER.info("Finish bundle"))
+                .withTeardownAction(() -> LOGGER.info("Teardown of the word count in the worker")))
+        .getResult()
+        .output();
+```
+
+The actions are optional, and an error in an action is not caught: it's a technical error, not an error on an
+element.

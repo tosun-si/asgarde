@@ -1,0 +1,31 @@
+---
+title: Custom DoFn
+description: Build Asgarde failures in your own Python DoFn classes.
+---
+
+In your own `DoFn` classes, build the failures with `Failure.from_exception`. It keeps the stack trace, converts the
+input element without ever raising, and replaces a non picklable exception by a `SerializableException`:
+
+```python
+import apache_beam as beam
+from apache_beam import pvalue
+
+from asgarde import FAILURES, Failure
+
+
+class MapToTeamWithCountry(beam.DoFn):
+
+    def process(self, element):
+        try:
+            yield TeamInfo(name=element, country=team_countries[element], city='')
+        except Exception as err:
+            yield pvalue.TaggedOutput(FAILURES, Failure.from_exception('Map to team with country', element, err))
+
+
+outputs, failures = (input_teams
+                     | 'Map to team with country' >> beam.ParDo(MapToTeamWithCountry())
+                     .with_outputs(FAILURES, main='outputs'))
+```
+
+The failures of a custom `DoFn` are not part of a `CollectionComposer` flow: flatten them with the composer failures
+if needed.

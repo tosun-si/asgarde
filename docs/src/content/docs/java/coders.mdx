@@ -1,0 +1,21 @@
+---
+title: Coders
+description: Set the coder of the outputs with the CollectionComposer.
+---
+
+The `CollectionComposer` works like a usual `PCollection` for the coders. By default, the coder of the outputs is
+inferred from the output type descriptor.
+
+To set a specific coder on the output of the current step, use `setCoder`, e.g. with an Avro `GenericRecord`:
+
+```java
+final PCollection<GenericRecord> output = CollectionComposer.of(records)
+        .apply("Enrich", MapElements
+                .into(TypeDescriptor.of(GenericRecord.class))
+                .via((GenericRecord record) -> enrich(record)))
+        .setCoder(AvroCoder.of(GenericRecord.class, schema))
+        .getResult()
+        .output();
+```
+
+The failures always use the coder of the `Failure` class (Java serialization).

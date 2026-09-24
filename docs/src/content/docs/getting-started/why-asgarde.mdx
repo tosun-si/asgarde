@@ -1,0 +1,138 @@
+---
+title: Why Asgarde
+description: Error handling with Apache Beam, with and without Asgarde.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Beam recommends handling errors with **dead letter queues**: the errors are caught in the flow and sent, via side
+outputs, to a dedicated sink (a file, a table, a topic...) instead of failing the job.
+
+## Error handling with plain Beam
+
+With plain Beam, every step needs its own error handling code, and all the failures must be gathered at the end:
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+WithFailures.Result<PCollection<String>, Failure> result1 = input
+        .apply("Map", MapElements
+                .into(TypeDescriptors.strings())
+                .via((String word) -> word + "Test")
+                .exceptionsInto(TypeDescriptor.of(Failure.class))
+                .exceptionsVia(exElt -> Failure.from("Map", exElt)));
+
+WithFailures.Result<PCollection<String>, Failure> result2 = result1.output()
+        .apply("FlatMap", FlatMapElements
+                .into(TypeDescriptors.strings())
+                .via((String line) -> Arrays.asList(line.split(" ")))
+                .exceptionsInto(TypeDescriptor.of(Failure.class))
+                .exceptionsVia(exElt -> Failure.from("FlatMap", exElt)));
+
+final PCollectionTuple result3 = result2.output()
+        .apply("Word count", ParDo.of(wordCountFn)
+                .withOutputTags(wordCountFn.getOutputTag(), TupleTagList.of(wordCountFn.getFailuresTag())));
+
+final PCollection<Integer> output = result3.get(wordCountFn.getOutputTag());
+final PCollection<Failure> allFailures = PCollectionList
+        .of(result1.failures())
+        .and(result2.failures())
+        .and(result3.get(wordCountFn.getFailuresTag()))
+        .apply(Flatten.pCollections());
+```
+
+Plus, for each custom `DoFn`, the tuple tags and the `try/catch` block:
+
+```java
+public class WordCountFn extends DoFn<String, Integer> {
+    private final TupleTag<Integer> outputTag = new TupleTag<Integer>() {};
+    private final TupleTag<Failure> failuresTag = new TupleTag<Failure>() {};
+
+    @ProcessElement
+    public void processElement(ProcessContext ctx) {
+        try {
+            ctx.output(1 / ctx.element().length());
+        } catch (Exception e) {
+            ctx.output(failuresTag, Failure.from("Word count", ctx.element(), e));
+        }
+    }
+    // Getters for the tags...
+}
+```
+</TabItem>
+<TabItem label="Python">
+```python
+class MapToTeamWithCountry(beam.DoFn):
+    def process(self, element):
+        try:
+            yield TeamInfo(name=element, country=team_countries[element], city='')
+        except Exception as err:
+            yield pvalue.TaggedOutput(FAILURES, Failure(pipeline_step='Map 1', input_element=element, exception=err))
+
+# Same DoFn boilerplate for each step...
+
+outputs_map1, failures_map1 = (input_teams
+                               | 'Map to team with country' >> beam.ParDo(MapToTeamWithCountry())
+                               .with_outputs(FAILURES, main='outputs'))
+
+outputs_map2, failures_map2 = (outputs_map1
+                               | 'Map to team with city' >> beam.ParDo(MapToTeamWithCity())
+                               .with_outputs(FAILURES, main='outputs'))
+
+outputs_filter, failures_filter = (outputs_map2
+                                   | 'Filter France teams' >> beam.ParDo(FilterFranceTeams())
+                                   .with_outputs(FAILURES, main='outputs'))
+
+all_failures = (failures_map1, failures_map2, failures_filter) | 'All failures' >> beam.Flatten()
+```
+</TabItem>
+</Tabs>
+
+The problems with this approach:
+
+- The fluent style is lost: the output and the failures must be handled for each step.
+- The same technical code is repeated everywhere: `exceptionsInto`/`exceptionsVia`, tuple tags, `try/catch` blocks.
+- All the failures must be concatenated manually at the end.
+- The code is verbose and error-prone.
+
+## The same flow with Asgarde
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+final WithFailures.Result<PCollection<Integer>, Failure> result = CollectionComposer.of(input)
+        .apply("Map", MapElements.into(TypeDescriptors.strings()).via((String word) -> word + "Test"))
+        .apply("FlatMap", FlatMapElements
+                .into(TypeDescriptors.strings())
+                .via((String line) -> Arrays.asList(line.split(" "))))
+        .apply("Word count", MapElementFn.into(TypeDescriptors.integers()).via(word -> 1 / word.length()))
+        .getResult();
+```
+</TabItem>
+<TabItem label="Kotlin">
+```kotlin
+val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(input)
+    .map("Map") { word -> word + "Test" }
+    .flatMap("FlatMap") { line -> line.split(" ") }
+    .mapFn("Word count", { word -> 1 / word.length })
+    .result
+```
+</TabItem>
+<TabItem label="Python">
+```python
+result = (CollectionComposer.of(input_teams)
+          .map('Map with country', lambda name: TeamInfo(name=name, country=team_countries[name], city=''))
+          .map('Map with city', lambda info: TeamInfo(name=info.name, country=info.country, city=team_cities[info.name]))
+          .filter('Filter french teams', lambda info: info.country == 'France'))
+```
+</TabItem>
+</Tabs>
+
+What Asgarde does for you:
+
+- Wraps the error handling logic of each step: `try/catch` blocks, tuple tags, `exceptionsInto`/`exceptionsVia`.
+- Keeps the fluent style of Beam while collecting the failures of all the steps in a single `PCollection`.
+- Gives access to the `DoFn` lifecycle (`setup`, `start bundle`, `finish bundle`, `teardown`) with simple actions.
+- Handles errors in filters, which is not available with the Beam `Filter` transform in Java.
+- Guarantees that the error handling itself can't make the job fail, and counts the failures per step with
+  [Beam metrics](/asgarde/concepts/metrics/).

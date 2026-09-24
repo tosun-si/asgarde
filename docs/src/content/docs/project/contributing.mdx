@@ -1,0 +1,23 @@
+---
+title: Contributing
+description: How to contribute to Asgarde.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Bug reports, ideas and pull requests are welcome. Each library has its own repository and contributing guide:
+
+<CardGrid>
+	<LinkCard title="Asgarde Java & Kotlin" description="Maven, JDK 17, Beam provided" href="https://github.com/tosun-si/asgarde/blob/main/CONTRIBUTING.md" />
+	<LinkCard title="Asgarde Python" description="uv, ruff, pytest" href="https://github.com/tosun-si/pasgarde/blob/main/CONTRIBUTING.md" />
+</CardGrid>
+
+This documentation lives in the [`docs/` folder of the Asgarde Java repository](https://github.com/tosun-si/asgarde/tree/main/docs)
+and covers both libraries: a change in the Python API needs a pull request there too. Use the "Edit page" link at the
+bottom of each page.
+
+```bash
+cd docs
+npm ci
+npm run dev   # http://localhost:4321/asgarde/
+```
