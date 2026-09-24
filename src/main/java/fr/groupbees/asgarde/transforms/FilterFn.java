@@ -4,6 +4,8 @@ import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 
+import java.util.Collections;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -58,6 +60,24 @@ public class FilterFn<InputT> extends BaseElementFn<InputT, InputT> {
     public static <InputT> FilterFn<InputT> by(final SerializableFunction<InputT, Boolean> predicate) {
         final TypeDescriptor<InputT> inputDescriptor = TypeDescriptors.inputOf(predicate);
         return new FilterFn<>(inputDescriptor, predicate);
+    }
+
+    /**
+     * Returns the {@link OriginElementFn} applying this filter on the values of {@code KV<origin, value>} elements.
+     */
+    <OriginT> OriginElementFn<OriginT, InputT, InputT> toOriginElementFn(final SerializableFunction<OriginT, String> originToString) {
+        final SerializableFunction<InputT, Boolean> keep = requireNonNull(predicate);
+        final SerializableAction noAction = () -> {
+        };
+
+        return new OriginElementFn<>(
+                input -> keep.apply(input) ? Collections.singletonList(input) : Collections.emptyList(),
+                originToString,
+                noAction,
+                noAction,
+                noAction,
+                noAction
+        );
     }
 
     /**

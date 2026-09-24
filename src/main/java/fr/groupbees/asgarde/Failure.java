@@ -16,16 +16,24 @@ import static java.util.Objects.requireNonNull;
  * @author mazlum
  */
 public class Failure implements Serializable {
+
+    // Fixed to the value computed for Asgarde 1.1.0: failures serialized by a previous version (e.g. in flight
+    // during a Dataflow streaming update) stay readable, the added fields are null for them.
+    private static final long serialVersionUID = 1281992175361165062L;
+
     private final String pipelineStep;
     private final String inputElement;
     private final Throwable exception;
+    private final String originElement;
 
     private Failure(String pipelineStep,
                     String inputElement,
-                    Throwable exception) {
+                    Throwable exception,
+                    String originElement) {
         this.pipelineStep = pipelineStep;
         this.inputElement = inputElement;
         this.exception = exception;
+        this.originElement = originElement;
     }
 
     /**
@@ -44,7 +52,8 @@ public class Failure implements Serializable {
         return new Failure(
                 pipelineStep,
                 elementAsString(exceptionElement.element()),
-                SerializableThrowable.of(exceptionElement.exception())
+                SerializableThrowable.of(exceptionElement.exception()),
+                null
         );
     }
 
@@ -68,7 +77,18 @@ public class Failure implements Serializable {
                                    final Throwable exception) {
         requireNonNull(exception);
 
-        return new Failure(pipelineStep, elementAsString(element), SerializableThrowable.of(exception));
+        return new Failure(pipelineStep, elementAsString(element), SerializableThrowable.of(exception), null);
+    }
+
+    /**
+     * Returns a copy of this failure with the given origin element: the element that entered the flow, when the
+     * origin is tracked with {@link CollectionComposer#withOriginElement}.
+     *
+     * @param originElement the origin element as a string
+     * @return a copy of this failure with the origin element
+     */
+    public Failure withOriginElement(final String originElement) {
+        return new Failure(pipelineStep, inputElement, exception, originElement);
     }
 
     /**
@@ -110,6 +130,16 @@ public class Failure implements Serializable {
     }
 
     /**
+     * <p>Getter for the field <code>originElement</code>: the element that entered the flow, as a string.</p>
+     *
+     * @return the origin element, {@code null} if the origin is not tracked
+     *         (see {@link CollectionComposer#withOriginElement})
+     */
+    public String getOriginElement() {
+        return originElement;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -118,6 +148,7 @@ public class Failure implements Serializable {
                 "pipelineStep='" + pipelineStep + '\'' +
                 ", inputElement='" + inputElement + '\'' +
                 ", exception=" + exception +
+                (originElement == null ? "" : ", originElement='" + originElement + '\'') +
                 '}';
     }
 }

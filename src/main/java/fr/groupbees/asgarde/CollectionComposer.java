@@ -301,6 +301,27 @@ public class CollectionComposer<T> {
     }
 
     /**
+     * Keeps the origin element of each element for the next steps: their failures give, with
+     * {@link Failure#getOriginElement()}, the element that entered the flow (the current output of this composer).
+     *
+     * <p>
+     * The given function converts the origin element to a string. It's evaluated <b>only when a failure occurs</b>:
+     * e.g. the full payload to replay the failure from the start, or an identifier (message id, business key).
+     * </p>
+     *
+     * <p>
+     * The next steps must be function based Asgarde DoFn classes ({@link MapElementFn}, {@code FlatMapElementFn},
+     * {@link FilterFn}), see {@link OriginCollectionComposer}.
+     * </p>
+     *
+     * @param originToString converts the origin element to a string, evaluated only when a failure occurs
+     * @return a composer keeping the origin element of each element
+     */
+    public OriginCollectionComposer<T, T> withOriginElement(final SerializableFunction<T, String> originToString) {
+        return OriginCollectionComposer.of(outputPCollection, failuresPCollection, lastStepName, originToString);
+    }
+
+    /**
      * Set the given {@link Coder} to the current output {@link PCollection} in the flow.
      *
      * @return CollectionComposer with current output and failure

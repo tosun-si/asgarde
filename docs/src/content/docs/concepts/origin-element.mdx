@@ -1,0 +1,80 @@
+---
+title: Origin element
+description: Get the element that entered the flow in the failures, to debug and replay from the start.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+A `Failure` contains the input element **of the failing step**. In a flow like Pub/Sub → parse → enrich → validate, a
+failure in `validate` gives the already transformed object, not the message that entered the pipeline. That's a
+problem to debug (the root cause is often in the raw message) and to replay the failure from the start.
+
+With `withOriginElement`, the failures of the next steps also give the **origin element**: the element that entered
+the flow.
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+final WithFailures.Result<PCollection<Order>, Failure> result = CollectionComposer.of(messages)
+        .withOriginElement(message -> message.getPayload())
+        .apply("Parse", MapElementFn.into(TypeDescriptor.of(Order.class)).via(OrderParser::parse))
+        .apply("Enrich", MapElementFn.into(TypeDescriptor.of(Order.class)).via(OrderEnricher::enrich))
+        .apply("Validate", FilterFn.by(Order::isValid))
+        .getResult();
+
+// A failure in "Validate" gives:
+// - failure.getInputElement(): the enriched order
+// - failure.getOriginElement(): the payload of the message that entered the flow
+```
+</TabItem>
+<TabItem label="Kotlin">
+```kotlin
+val result: Result<PCollection<Order>, Failure> = CollectionComposer.of(messages)
+    .withOriginElement { message -> message.payload }
+    .mapFn("Parse", { message -> OrderParser.parse(message) })
+    .mapFn("Enrich", { order -> OrderEnricher.enrich(order) })
+    .filter("Validate") { order -> order.isValid() }
+    .result
+```
+</TabItem>
+<TabItem label="Python">
+<Aside>Coming with Asgarde Python 1.2.0 ([issue #4](https://github.com/tosun-si/pasgarde/issues/4)).</Aside>
+</TabItem>
+</Tabs>
+
+## Light by design
+
+- **Opt-in**: without `withOriginElement`, nothing changes.
+- **A reference, not a copy**: each element keeps a reference to its origin. The composer steps are element-wise,
+  so the runner fuses them: the elements are passed in memory, the origin is an element already there.
+- **Lazy evaluation**: the function converting the origin to a string is only evaluated **when a failure occurs**.
+  The good elements never pay for it.
+- **Never breaks the job**: if the conversion of the origin fails, the failure gets a fallback string.
+
+The function decides what is kept in the failure:
+
+| Function | Kept in the failure | Use case |
+|---|---|---|
+| `message -> message.getPayload()` | The full payload | Replay the failure from the start, from the dead letter queue |
+| `message -> message.getMessageId()` | An identifier | Find the raw message in a landing zone, or in the source (Kafka offset) |
+
+## Supported steps
+
+The origin is kept by the function based Asgarde DoFn classes, checked at compile time:
+
+| Java | Kotlin |
+|---|---|
+| `MapElementFn` | `mapFn` |
+| `FlatMapElementFn` (the outputs keep the origin of their input element) | `flatMapFn` |
+| `FilterFn` | `filter` |
+
+<Aside type="caution">
+The Beam `MapElements`/`FlatMapElements` and the `ProcessContext` DoFn classes are not supported in this mode: the
+composer applies the functions on the values and keeps the origin next to them, Beam doesn't expose the function of a
+`MapElements`. Use `MapElementFn` and `FlatMapElementFn` instead.
+</Aside>
+
+The failures of the steps applied **before** `withOriginElement` have no origin element
+(`getOriginElement()` is `null`): the origin is the current element when the tracking starts. For the same reason,
+the origin can't go through a `GroupByKey` or a `Combine`, which mix several elements: the tracking is limited to the
+steps of the composer.

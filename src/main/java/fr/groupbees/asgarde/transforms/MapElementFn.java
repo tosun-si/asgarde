@@ -5,6 +5,8 @@ import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 
+import java.util.Collections;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -211,6 +213,22 @@ public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT
                 finishBundleAction,
                 teardownAction,
                 inputElementMapper
+        );
+    }
+
+    /**
+     * Returns the {@link OriginElementFn} applying this map on the values of {@code KV<origin, value>} elements.
+     */
+    <OriginT> OriginElementFn<OriginT, InputT, OutputT> toOriginElementFn(final SerializableFunction<OriginT, String> originToString) {
+        final SerializableFunction<InputT, OutputT> mapper = requireNonNull(inputElementMapper);
+
+        return new OriginElementFn<>(
+                input -> Collections.singletonList(mapper.apply(input)),
+                originToString,
+                setupAction,
+                startBundleAction,
+                finishBundleAction,
+                teardownAction
         );
     }
 
