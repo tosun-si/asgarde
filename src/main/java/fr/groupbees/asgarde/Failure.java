@@ -2,7 +2,10 @@ package fr.groupbees.asgarde;
 
 import org.apache.beam.sdk.transforms.WithFailures;
 
+import java.io.PrintWriter;
 import java.io.Serializable;
+import java.io.StringWriter;
+import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,15 +28,18 @@ public class Failure implements Serializable {
     private final String inputElement;
     private final Throwable exception;
     private final String originElement;
+    private final Instant timestamp;
 
     private Failure(String pipelineStep,
                     String inputElement,
                     Throwable exception,
-                    String originElement) {
+                    String originElement,
+                    Instant timestamp) {
         this.pipelineStep = pipelineStep;
         this.inputElement = inputElement;
         this.exception = exception;
         this.originElement = originElement;
+        this.timestamp = timestamp;
     }
 
     /**
@@ -53,7 +59,8 @@ public class Failure implements Serializable {
                 pipelineStep,
                 elementAsString(exceptionElement.element()),
                 SerializableThrowable.of(exceptionElement.exception()),
-                null
+                null,
+                Instant.now()
         );
     }
 
@@ -77,7 +84,7 @@ public class Failure implements Serializable {
                                    final Throwable exception) {
         requireNonNull(exception);
 
-        return new Failure(pipelineStep, elementAsString(element), SerializableThrowable.of(exception), null);
+        return new Failure(pipelineStep, elementAsString(element), SerializableThrowable.of(exception), null, Instant.now());
     }
 
     /**
@@ -88,7 +95,7 @@ public class Failure implements Serializable {
      * @return a copy of this failure with the origin element
      */
     public Failure withOriginElement(final String originElement) {
-        return new Failure(pipelineStep, inputElement, exception, originElement);
+        return new Failure(pipelineStep, inputElement, exception, originElement, timestamp);
     }
 
     /**
@@ -127,6 +134,44 @@ public class Failure implements Serializable {
      */
     public Throwable getException() {
         return exception;
+    }
+
+    /**
+     * Class name of the exception, the original class name for an exception replaced by a
+     * {@link SerializableThrowable}.
+     *
+     * @return the exception type, computed from the exception
+     */
+    public String getExceptionType() {
+        return exception instanceof SerializableThrowable
+                ? ((SerializableThrowable) exception).getOriginalClassName()
+                : exception.getClass().getName();
+    }
+
+    /**
+     * @return the message of the exception, {@code null} if the exception has no message
+     */
+    public String getExceptionMessage() {
+        return exception.getMessage();
+    }
+
+    /**
+     * Stack trace of the exception as a string, causes included, e.g. to write it to a dead letter queue.
+     *
+     * @return the stack trace, computed from the exception
+     */
+    public String getStackTrace() {
+        final StringWriter stackTrace = new StringWriter();
+        exception.printStackTrace(new PrintWriter(stackTrace));
+
+        return stackTrace.toString();
+    }
+
+    /**
+     * @return when the failure was created, {@code null} for a failure deserialized from Asgarde 1.2.0 or older
+     */
+    public Instant getTimestamp() {
+        return timestamp;
     }
 
     /**
