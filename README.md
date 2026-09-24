@@ -1,4 +1,4 @@
-![Logo](asgarde_logo_small.gif)
+<img src="asgarde_logo.png" alt="Asgarde logo" width="200">
 
 # Asgarde
 
