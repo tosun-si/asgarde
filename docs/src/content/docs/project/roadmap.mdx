@@ -1,17 +1,54 @@
 ---
 title: Roadmap
-description: Ideas for the next versions of Asgarde.
+description: The next versions of Asgarde, for Java and Python.
 ---
 
-Ideas for the next versions, for Java and Python. Feedback and contributions are welcome: open an issue on
-[Asgarde Java](https://github.com/tosun-si/asgarde/issues) or [Asgarde Python](https://github.com/tosun-si/pasgarde/issues).
+import { Aside } from '@astrojs/starlight/components';
 
-- **Richer `Failure` model**: exception type, message and stack trace stored as strings, a timestamp, and a Beam
-  schema to write the failures directly to BigQuery.
-- **Replayable input element**: pluggable element serializer (JSON, bytes...) instead of the string representation,
-  to replay the failures from the dead letter queue and avoid leaking sensitive data.
-- **Any Beam transform in the Python composer**: plug a custom `DoFn` or `PTransform` using the Beam native error
-  handling (`with_exception_handling`).
-- **Global failure handler** (Java): inject a custom `Failure` factory and error handling function once.
-- **Integration with the Beam native error handling** (`ErrorHandler`, `BadRecord`) used by the Beam IOs.
-- **Ready-to-use failure sinks**: BigQuery, GCS, Pub/Sub.
+The Java and Python libraries evolve together: each feature is released in both, with the same concepts. Feedback and
+contributions are welcome: open an issue on [Asgarde Java](https://github.com/tosun-si/asgarde/issues) or
+[Asgarde Python](https://github.com/tosun-si/pasgarde/issues).
+
+## 1.3.0 (planned)
+
+Enrichment of the `Failure` model and integration with the Beam native error handling, **without breaking change**.
+
+| Feature | Java / Kotlin | Python |
+|---|---|---|
+| **Richer `Failure`**: exception type, message and stack trace computed from the exception, and a timestamp | [#39](https://github.com/tosun-si/asgarde/issues/39) | [#7](https://github.com/tosun-si/pasgarde/issues/7) |
+| **Failures to BigQuery**: conversion to Beam `Row`s (Java) or dicts (Python) with a documented schema, and a BigQuery recipe | [#40](https://github.com/tosun-si/asgarde/issues/40) | [#8](https://github.com/tosun-si/pasgarde/issues/8) |
+| **Beam native error handling**: bridge to the Beam `ErrorHandler` (`BadRecord`), and any Beam transform in the Python composer (`with_exception_handling`) | [#41](https://github.com/tosun-si/asgarde/issues/41) | [#9](https://github.com/tosun-si/pasgarde/issues/9) |
+
+<Aside title="Why no breaking change on Failure">
+Every enrichment is additive: computed getters, nullable fields and a fixed `serialVersionUID` keep the failures of a
+previous version readable, including in flight during a Dataflow streaming update. The schema for BigQuery is an
+explicit conversion, not a default schema on `Failure`: a default schema would change its coder and lose the
+exception.
+</Aside>
+
+## 2.0.0 (later)
+
+A major version for the **platform**, not for the `Failure` model:
+
+- **Java 11 bytecode**, when the minimum supported Beam version is raised to `2.74.0` or later (Beam requires Java 11
+  since this version).
+- **Kotlin 2** for the extensions, whose metadata can't be read by Kotlin 1.x projects.
+
+## Ideas, on demand
+
+Not planned: they'll be considered if users need them.
+
+- **Custom `Failure` type** (Java): inject a `Failure` factory once for all the steps. It needs a generic composer,
+  a breaking and complex change.
+- **Serializer per step for the input element**: mostly covered by the [origin element](/asgarde/concepts/origin-element/),
+  which already lets you choose the format (JSON, id...) to replay from the start.
+- **Ready-to-use failure sinks module** (BigQuery, GCS, Pub/Sub): a sink module would bring the GCP dependencies;
+  the 1.3.0 conversion plus a one line recipe with the Beam IOs covers most needs.
+
+## Delivered
+
+| Version | Highlights |
+|---|---|
+| **1.2.0** | [Origin element](/asgarde/concepts/origin-element/) in the failures (lazy evaluation) |
+| **1.1.0** (Java) | [Failure handling guarantees](/asgarde/concepts/guarantees/) and [failure metrics](/asgarde/concepts/metrics/) |
+| **1.0.0** | Not tied to a Beam version anymore: Beam is `provided` (Java) or a minimum version (Python), tested every week against the latest Beam release. The Python 1.0.0 also brings the guarantees and the metrics |
