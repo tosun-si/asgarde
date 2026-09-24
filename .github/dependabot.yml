@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [ dependencies, ci ]
+    groups:
+      github-actions:
+        patterns: [ '*' ]
+
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [ dependencies ]
+    ignore:
+      # beam.version is the compile BASELINE (minimum supported Beam), bumped deliberately.
+      # Compatibility with the latest Beam is covered by the CI matrix, not by Dependabot.
+      - dependency-name: 'org.apache.beam:*'
+      # Kotlin 2.x metadata isn't readable by Kotlin 1.x consumers of the extensions.
+      - dependency-name: 'org.jetbrains.kotlin:*'
+        update-types: [ version-update:semver-major ]
+    groups:
+      maven-plugins:
+        patterns: [ 'org.apache.maven.plugins:*', 'org.jacoco:*', 'org.apache.avro:*', 'org.sonatype.central:*' ]
+      test-dependencies:
+        patterns: [ 'org.assertj:*', 'org.projectlombok:*', 'junit:*', 'org.hamcrest:*', 'pl.pragmatists:*' ]

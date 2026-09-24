@@ -1,12 +1,36 @@
-![Logo](asgarde_logo_small.gif) 
+![Logo](asgarde_logo_small.gif)
 
 # Asgarde
 
+[![Maven Central](https://img.shields.io/maven-central/v/fr.groupbees/asgarde?logo=apachemaven&label=Maven%20Central&color=blue)](https://central.sonatype.com/artifact/fr.groupbees/asgarde)
+[![Build](https://github.com/tosun-si/asgarde/actions/workflows/build-and-quality-check.yml/badge.svg?branch=main)](https://github.com/tosun-si/asgarde/actions/workflows/build-and-quality-check.yml)
+[![Apache Beam](https://img.shields.io/badge/Apache%20Beam-%E2%89%A5%202.70.0-E25A1C?logo=apache&logoColor=white)](https://beam.apache.org/)
+[![Java](https://img.shields.io/badge/Java-8%2B-ED8B00?logo=openjdk&logoColor=white)](#compatibility-with-apache-beam)
+[![Kotlin](https://img.shields.io/badge/Kotlin-extensions-7F52FF?logo=kotlin&logoColor=white)](#asgarde-with-kotlin)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=tosun-si_asgarde&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=tosun-si_asgarde)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=tosun-si_asgarde&metric=coverage)](https://sonarcloud.io/summary/new_code?id=tosun-si_asgarde)
+[![License: MIT](https://img.shields.io/github/license/tosun-si/asgarde)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/tosun-si/asgarde?style=social)](https://github.com/tosun-si/asgarde)
+
 This module allows simplifying error handling with Apache Beam Java.
 
-## Versions compatibility between Beam and Asgarde
+## Compatibility with Apache Beam
 
-<div style="max-height: 200px; overflow-y: auto; overflow-x: auto;">
+Starting with Asgarde `1.0.0`, Asgarde is **no longer tied to a specific Beam version**:
+
+- Beam is declared with the `provided` scope: your pipeline brings its own Beam version, Asgarde doesn't pull one.
+- Asgarde is compiled against Beam `2.70.0` (the minimum supported version) and only relies on stable Beam core APIs
+  (`DoFn`, `MapElements`, `FlatMapElements`, `WithFailures`, `TupleTag`...).
+- The CI runs the whole test suite against the **latest Beam release** on every push and every week. A new Asgarde
+  version is only released when a Beam release actually requires a change.
+
+| Beam version       | Java runtime |
+|--------------------|--------------|
+| `2.70.0`–`2.73.x`  | 8+           |
+| `>= 2.74.0`        | 11+ (required by Beam) |
+
+<details>
+<summary>Legacy versions (before 1.0.0): one Asgarde release per Beam release</summary>
 
 | Asgarde | Beam   |
 |---------|--------|
@@ -51,12 +75,14 @@ This module allows simplifying error handling with Apache Beam Java.
 | 0.48.0  | 2.69.0 |
 | 0.49.0  | 2.70.0 |
 
-</div>
+</details>
 
 ## Installation of project
 
 The project is hosted on Maven repository.\
 You can install it with all the build tools compatibles with Maven.
+
+Beam must be declared in your project (it's already the case for any Beam pipeline), Asgarde uses it.
 
 Example with Maven and Gradle :
 
@@ -66,14 +92,14 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>0.49.0</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
 #### Gradle
 
 ```text
-implementation group: 'fr.groupbees', name: 'asgarde', version: '0.49.0'
+implementation group: 'fr.groupbees', name: 'asgarde', version: '1.0.0'
 ```
 
 ## Error logic with Beam ParDo and DoFn

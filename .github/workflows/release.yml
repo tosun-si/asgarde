@@ -1,19 +1,66 @@
-name: Create GitHub Release
+name: Release
 
 on:
   push:
     tags: [ 'v*.*.*' ]
+  # Manual re-run: select the tag in the "Use workflow from" dropdown.
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  release:
+  publish:
+    name: Publish to Maven Central
+    runs-on: ubuntu-latest
+    environment: asgarde_ci_cd
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17 and Maven settings for Central
+        uses: actions/setup-java@v6
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+          server-id: central
+          server-username-env-var: CENTRAL_USERNAME
+          server-password-env-var: CENTRAL_PASSWORD
+
+      - name: Check that the tag matches the pom version
+        run: |
+          POM_VERSION=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)
+          if [ "${GITHUB_REF_TYPE}" != "tag" ] || [ "v${POM_VERSION}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::Ref '${GITHUB_REF_NAME}' (${GITHUB_REF_TYPE}) does not match pom version 'v${POM_VERSION}'"
+            exit 1
+          fi
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.OSSRH_GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --list-secret-keys --keyid-format LONG
+
+      - name: Publish to Maven Central
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.OSSRH_GPG_PASSPHRASE }}
+        run: mvn -B -ntp clean deploy -P release
+
+  github-release:
     name: Create GitHub Release
+    needs: publish
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -37,7 +84,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           draft: false
