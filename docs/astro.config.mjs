@@ -37,6 +37,8 @@ export default defineConfig({
 						{ label: 'Failure handling guarantees', slug: 'concepts/guarantees' },
 						{ label: 'Failure metrics', slug: 'concepts/metrics' },
 						{ label: 'Origin element', slug: 'concepts/origin-element' },
+						{ label: 'Write the failures', slug: 'concepts/write-failures' },
+						{ label: 'Beam native error handling', slug: 'concepts/beam-error-handling' },
 					],
 				},
 				{

@@ -1,0 +1,63 @@
+---
+title: Beam native error handling
+description: Use Asgarde with the Beam ErrorHandler and BadRecord, for a single dead letter queue.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+Beam has a native error handling: some transforms and IOs (e.g. `KafkaIO`, `BigQueryIO`) can send their bad records
+to an `ErrorHandler`, as `BadRecord` objects. Asgarde and the Beam error handling work together: the Asgarde failures
+can be added to the same `ErrorHandler`, for a **single dead letter queue** for the whole pipeline.
+
+## When to use what
+
+| Need | Use |
+|---|---|
+| Errors of your own transformation steps (map, flatMap, filter, DoFn) | Asgarde: the failures of all the steps in a fluent flow, without boilerplate |
+| Bad records of a Beam IO or transform supporting the `ErrorHandler` | The Beam `ErrorHandler` |
+| Both in the same pipeline | Asgarde, with its failures converted to `BadRecord`s and added to the Beam `ErrorHandler` |
+
+## Add the Asgarde failures to a Beam ErrorHandler
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+`FailureTransforms.toBadRecords()` converts the failures to Beam `BadRecord`s:
+
+```java
+final BadRecordErrorHandler<?> errorHandler = pipeline.registerBadRecordErrorHandler(new WriteBadRecordsToBigQuery());
+
+// Bad records of a Beam IO supporting the error handler.
+pipeline.apply("Read Kafka", KafkaIO.<String, String>read()
+        // ...
+        .withBadRecordErrorHandler(errorHandler));
+
+// Failures of the Asgarde steps, added to the same error handler.
+final WithFailures.Result<PCollection<Order>, Failure> result = CollectionComposer.of(messages)
+        .apply("Parse", MapElementFn.into(TypeDescriptor.of(Order.class)).via(OrderParser::parse))
+        .getResult();
+
+errorHandler.addErrorCollection(result.failures().apply("To bad records", FailureTransforms.toBadRecords()));
+
+errorHandler.close();
+```
+
+The mapping of a `Failure` to a `BadRecord`:
+
+| `BadRecord` | From the `Failure` |
+|---|---|
+| `record.humanReadableJsonRecord` | The [origin element](/asgarde/concepts/origin-element/) when it's tracked, the input element otherwise |
+| `record.encodedRecord` | Empty: Asgarde keeps the elements as strings |
+| `failure.exception` | The exception, as a string |
+| `failure.exceptionStacktrace` | The stack trace |
+| `failure.description` | The pipeline step |
+</TabItem>
+<TabItem label="Python">
+<Aside>Coming with Asgarde Python 1.3.0: any Beam transform in the composer and the bridge to the Beam
+`ErrorHandler` ([issue #9](https://github.com/tosun-si/pasgarde/issues/9)).</Aside>
+</TabItem>
+</Tabs>
+
+<Aside>
+The Asgarde `Failure` gives more than a `BadRecord` (e.g. the input element and the origin element separately, the
+failure metrics per step): keep the Asgarde failures as they are if you don't use the Beam `ErrorHandler`.
+</Aside>
