@@ -1310,9 +1310,19 @@ CollectionComposer.of(teamCollection)
     .result
 ```
 
-## Possible evolutions in the future
+## Roadmap
 
-- Maybe allow injecting a custom `Failure` object and error handling function to be used in all `apply` calls.
+Ideas for the next versions, feedback and contributions are welcome (see [Contributing](#contributing)):
+
+- **Richer `Failure` model** (major version): exception type, message and stack trace stored as strings instead of
+  the raw exception, a timestamp, and a Beam schema to write the failures directly to BigQuery.
+- **Replayable input element**: pluggable element serializer (JSON, bytes...) instead of `toString()`, to replay the
+  failures from the dead letter queue and avoid leaking sensitive data.
+- **Global failure handler**: inject a custom `Failure` factory and error handling function once, used by all the
+  `apply` calls.
+- **Integration with the Beam native error handling** (`ErrorHandler`, `BadRecord`) used by the Beam IOs.
+- **Ready-to-use failure sinks**: BigQuery, GCS, Pub/Sub.
+- **Documentation site** covering the Java and Python versions.
 
 ## Contributing
 
