@@ -117,6 +117,80 @@ public class FailureTransformsTest implements Serializable {
     }
 
     @Test
+    public void givenFailureWithEncodedElements_whenToRowWithEncodedElements_thenRowWithTheExtendedSchema() {
+        // Given.
+        final Failure failure = Failure.from(PARSE, "input", new IllegalStateException("Error"))
+                .withOriginElement("origin")
+                .withEncodedInputElement("input", StringUtf8Coder.of())
+                .withEncodedOriginElement("origin", StringUtf8Coder.of());
+
+        // When.
+        final Row row = FailureTransforms.toRowWithEncodedElements(failure);
+
+        // Then.
+        assertThat(row.getSchema()).isEqualTo(FailureTransforms.SCHEMA_WITH_ENCODED_ELEMENTS);
+        assertThat(row.getString("inputElement")).isEqualTo("input");
+        assertThat(row.getBytes("inputElementBytes")).isEqualTo(failure.getInputElementBytes());
+        assertThat(row.getString("inputElementCoder")).isEqualTo(StringUtf8Coder.of().toString());
+        assertThat(row.getBytes("originElementBytes")).isEqualTo(failure.getOriginElementBytes());
+        assertThat(row.getString("originElementCoder")).isEqualTo(StringUtf8Coder.of().toString());
+    }
+
+    @Test
+    public void givenSchema_whenCompareWithTheExtendedSchema_thenSchemaUnchangedAndIncluded() {
+        // Then: the 1.3.0 schema is unchanged, the tables created with it keep working.
+        assertThat(FailureTransforms.SCHEMA.getFieldNames()).containsExactly(
+                "pipelineStep", "inputElement", "originElement", "exceptionType", "exceptionMessage", "stackTrace", "timestamp");
+        assertThat(FailureTransforms.SCHEMA_WITH_ENCODED_ELEMENTS.getFieldNames())
+                .startsWith(FailureTransforms.SCHEMA.getFieldNames().toArray(new String[0]))
+                .endsWith("inputElementBytes", "inputElementCoder", "originElementBytes", "originElementCoder");
+    }
+
+    @Test
+    public void givenComposerFailuresWithEncodedElements_whenToRowsWithEncodedElements_thenRowsWithTheBytes() {
+        // Given.
+        final PCollection<String> values = pipeline.apply("Create values", Create.of("not a number"));
+
+        final Result<PCollection<Integer>, Failure> result = CollectionComposer.of(values)
+                .withEncodedElements()
+                .apply(PARSE, MapElementFn.into(TypeDescriptors.integers()).via((String value) -> Integer.parseInt(value)))
+                .getResult();
+
+        // When.
+        final PCollection<Row> rows = result.failures().apply("To rows", FailureTransforms.toRowsWithEncodedElements());
+
+        // Then.
+        assertThat(rows.getSchema()).isEqualTo(FailureTransforms.SCHEMA_WITH_ENCODED_ELEMENTS);
+
+        PAssert.that(rows.apply("To coder", MapElements
+                        .into(TypeDescriptors.strings())
+                        .via((Row row) -> row.getString("inputElementCoder") + "|" + (row.getBytes("inputElementBytes") != null))))
+                .containsInAnyOrder(StringUtf8Coder.of() + "|true");
+
+        pipeline.run().waitUntilFinish();
+    }
+
+    @Test
+    public void givenFailureWithEncodedElements_whenToBadRecord_thenEncodedRecordAndCoderOfTheOriginOrInput() {
+        // Given.
+        final Failure failure = Failure.from(PARSE, "input", new IllegalStateException("Error"))
+                .withEncodedInputElement("input", StringUtf8Coder.of());
+        final Failure failureWithOrigin = failure
+                .withOriginElement("origin")
+                .withEncodedOriginElement("origin", StringUtf8Coder.of());
+
+        // When.
+        final BadRecord badRecord = FailureTransforms.toBadRecord(failure);
+        final BadRecord badRecordWithOrigin = FailureTransforms.toBadRecord(failureWithOrigin);
+
+        // Then.
+        assertThat(badRecord.getRecord().getEncodedRecord()).isEqualTo(failure.getInputElementBytes());
+        assertThat(badRecord.getRecord().getCoder()).isEqualTo(StringUtf8Coder.of().toString());
+        assertThat(badRecordWithOrigin.getRecord().getEncodedRecord()).isEqualTo(failureWithOrigin.getOriginElementBytes());
+        assertThat(badRecordWithOrigin.getRecord().getHumanReadableJsonRecord()).isEqualTo("origin");
+    }
+
+    @Test
     public void givenFailureWithoutPipelineStep_whenToBadRecord_thenDefaultDescription() {
         // When.
         final BadRecord badRecord = FailureTransforms.toBadRecord(Failure.from(null, "input", new IllegalStateException("Error")));

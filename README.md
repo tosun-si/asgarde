@@ -53,12 +53,12 @@ Asgarde is published on [Maven Central](https://central.sonatype.com/artifact/fr
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
 </dependency>
 ```
 
 ```kotlin
-implementation("fr.groupbees:asgarde:1.3.0")
+implementation("fr.groupbees:asgarde:1.4.0")
 ```
 
 ## Features
@@ -74,6 +74,9 @@ implementation("fr.groupbees:asgarde:1.3.0")
   that entered the flow, to debug and replay from the start. Evaluated only when a failure occurs.
 - **[Never breaks your job](https://tosun-si.github.io/asgarde/concepts/guarantees/)**: non serializable exceptions,
   failing `toString`, partial flatMap outputs, reused DoFn instances, stable transform names for Dataflow updates.
+- **[Input element format and encoded elements](https://tosun-si.github.io/asgarde/concepts/failure/)**: choose the
+  string format of the input element (JSON, masking sensitive data...), and optionally keep the elements encoded with
+  their coder, to replay them exactly.
 - **[Write the failures](https://tosun-si.github.io/asgarde/concepts/write-failures/)** to BigQuery or any
   schema-aware sink, with a documented schema (exception type, message, stack trace, timestamp...).
 - **[Beam native error handling](https://tosun-si.github.io/asgarde/concepts/beam-error-handling/)**: the failures

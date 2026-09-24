@@ -68,6 +68,10 @@ The function decides what is kept in the failure:
 | `message -> message.getPayload()` / `lambda m: m.data.decode()` | The full payload | Replay the failure from the start, from the dead letter queue |
 | `message -> message.getMessageId()` / `lambda m: m.message_id` | An identifier | Find the raw message in a landing zone, or in the source (Kafka offset) |
 
+To replay the origin element **exactly** (binary formats like Avro or Protobuf), add `withEncodedElements()`
+(since 1.4.0, Java): the origin element is also encoded with its coder, the coder of the elements when the tracking
+starts (`getOriginElementBytes()`). See [Encoded elements](/asgarde/concepts/failure/#encoded-elements).
+
 ## Supported steps
 
 **Python**: all the operators (`map`, `flat_map`, `filter`), side inputs included: the functions receive the value.

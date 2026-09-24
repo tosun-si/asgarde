@@ -11,6 +11,8 @@ import org.apache.beam.sdk.values.*;
 
 import java.util.Collections;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * This class allows to compose some transforms from an input {@link PCollection}.
  *
@@ -45,15 +47,23 @@ public class CollectionComposer<T> {
     private final PCollectionList<Failure> failuresPCollection;
     private final String lastStepName;
 
+    // Failure settings of the next steps, see withInputElementToString and withEncodedElements.
+    private final SerializableFunction<Object, String> inputElementToString;
+    private final boolean encodeElements;
+
     // Built once: calling getResult() several times must not apply the same (deterministic) transform name twice.
     private PCollection<Failure> allFailures;
 
     private CollectionComposer(PCollection<T> outputPCollection,
                                PCollectionList<Failure> failuresPCollection,
-                               String lastStepName) {
+                               String lastStepName,
+                               SerializableFunction<Object, String> inputElementToString,
+                               boolean encodeElements) {
         this.outputPCollection = outputPCollection;
         this.failuresPCollection = failuresPCollection;
         this.lastStepName = lastStepName;
+        this.inputElementToString = inputElementToString;
+        this.encodeElements = encodeElements;
     }
 
     /**
@@ -64,7 +74,7 @@ public class CollectionComposer<T> {
      * @return The CollectionComposer instance from the input PCollection
      */
     public static <T> CollectionComposer<T> of(final PCollection<T> inputPCollection) {
-        return new CollectionComposer<>(inputPCollection, PCollectionList.empty(inputPCollection.getPipeline()), null);
+        return new CollectionComposer<>(inputPCollection, PCollectionList.empty(inputPCollection.getPipeline()), null, null, false);
     }
 
     /**
@@ -93,10 +103,13 @@ public class CollectionComposer<T> {
      */
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final MapElements<T, OutputT> mapElements) {
+        final SerializableFunction<Object, String> elementToString = inputElementToString;
+        final Coder<T> inputCoder = encodedInputCoder();
+
         return apply(
                 name, mapElements
                         .exceptionsInto(TypeDescriptor.of(Failure.class))
-                        .exceptionsVia(exceptionElement -> toFailure(name, exceptionElement))
+                        .exceptionsVia(exceptionElement -> toFailure(name, exceptionElement, elementToString, inputCoder))
         );
     }
 
@@ -126,10 +139,13 @@ public class CollectionComposer<T> {
      */
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final FlatMapElements<T, OutputT> flatMapElements) {
+        final SerializableFunction<Object, String> elementToString = inputElementToString;
+        final Coder<T> inputCoder = encodedInputCoder();
+
         return apply(
                 name, flatMapElements
                         .exceptionsInto(TypeDescriptor.of(Failure.class))
-                        .exceptionsVia(exceptionElement -> toFailure(name, exceptionElement))
+                        .exceptionsVia(exceptionElement -> toFailure(name, exceptionElement, elementToString, inputCoder))
         );
     }
 
@@ -187,7 +203,7 @@ public class CollectionComposer<T> {
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final PTransform<PCollection<T>, Result<PCollection<OutputT>, Failure>> transform) {
         final Result<PCollection<OutputT>, Failure> result = outputPCollection.apply(name, transform);
-        return new CollectionComposer<>(result.output(), failuresPCollection.and(result.failures()), name);
+        return new CollectionComposer<>(result.output(), failuresPCollection.and(result.failures()), name, inputElementToString, encodeElements);
     }
 
     /**
@@ -223,7 +239,7 @@ public class CollectionComposer<T> {
      */
     public CollectionComposer<T> apply(final String name,
                                        final FilterFn<T> doFn) {
-        final BaseElementFn<T, T> stepFn = doFn.forPipelineStep(name);
+        final BaseElementFn<T, T> stepFn = doFn.forPipelineStep(name, inputElementToString, encodedInputCoder());
 
         final PCollectionTuple tuple = outputPCollection.apply(name,
                 ParDo.of(stepFn).withOutputTags(stepFn.getOutputTag(), TupleTagList.of(stepFn.getFailuresTag())));
@@ -233,7 +249,7 @@ public class CollectionComposer<T> {
                 .setTypeDescriptor(outputPCollection.getCoder().getEncodedTypeDescriptor())
                 .setCoder(outputPCollection.getCoder());
 
-        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(stepFn.getFailuresTag())), name);
+        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(stepFn.getFailuresTag())), name, inputElementToString, encodeElements);
     }
 
     /**
@@ -286,7 +302,7 @@ public class CollectionComposer<T> {
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final BaseElementFn<T, OutputT> doFn,
                                                        final Iterable<? extends PCollectionView<?>> sideInputs) {
-        final BaseElementFn<T, OutputT> stepFn = doFn.forPipelineStep(name);
+        final BaseElementFn<T, OutputT> stepFn = doFn.forPipelineStep(name, inputElementToString, encodedInputCoder());
 
         final PCollectionTuple tuple = outputPCollection.apply(name,
                 ParDo.of(stepFn)
@@ -297,7 +313,7 @@ public class CollectionComposer<T> {
                 .get(stepFn.getOutputTag())
                 .setTypeDescriptor(stepFn.getOutputTypeDescriptor());
 
-        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(stepFn.getFailuresTag())), name);
+        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(stepFn.getFailuresTag())), name, inputElementToString, encodeElements);
     }
 
     /**
@@ -318,7 +334,45 @@ public class CollectionComposer<T> {
      * @return a composer keeping the origin element of each element
      */
     public OriginCollectionComposer<T, T> withOriginElement(final SerializableFunction<T, String> originToString) {
-        return OriginCollectionComposer.of(outputPCollection, failuresPCollection, lastStepName, originToString);
+        return OriginCollectionComposer.of(
+                outputPCollection,
+                failuresPCollection,
+                lastStepName,
+                originToString,
+                inputElementToString,
+                encodeElements
+        );
+    }
+
+    /**
+     * Converts the input elements of the next steps to a string in the failures with the given function, instead of
+     * {@code toString()}: e.g. JSON, a format masking sensitive data, or an identifier.
+     *
+     * <p>
+     * The function is evaluated <b>only when a failure occurs</b>, for all the kinds of steps. It never breaks the
+     * job: if it throws or returns {@code null}, the element is converted with {@code toString()}.
+     * </p>
+     *
+     * @param inputElementToString converts an input element to a string
+     * @return a composer converting the input elements of the next steps with the given function
+     */
+    public CollectionComposer<T> withInputElementToString(final SerializableFunction<Object, String> inputElementToString) {
+        return new CollectionComposer<>(outputPCollection, failuresPCollection, lastStepName, requireNonNull(inputElementToString), encodeElements);
+    }
+
+    /**
+     * Also keeps, in the failures of the next steps, the input element (and the origin element) encoded with its
+     * coder: the coder of the PCollection consumed by the step, to replay the element exactly.
+     *
+     * <p>
+     * The element is encoded <b>only when a failure occurs</b>. It never breaks the job: if the element can't be
+     * encoded, the failure has no bytes.
+     * </p>
+     *
+     * @return a composer encoding the elements of the next steps in the failures
+     */
+    public CollectionComposer<T> withEncodedElements() {
+        return new CollectionComposer<>(outputPCollection, failuresPCollection, lastStepName, inputElementToString, true);
     }
 
     /**
@@ -366,9 +420,23 @@ public class CollectionComposer<T> {
         return failuresPCollection.apply(stepName, Flatten.pCollections());
     }
 
+    /**
+     * Coder of the elements consumed by the next step when they're encoded in the failures, {@code null} otherwise.
+     * Taken when the step is built: the coder the pipeline uses for these elements.
+     */
+    private Coder<T> encodedInputCoder() {
+        return encodeElements ? outputPCollection.getCoder() : null;
+    }
+
     private static <T> Failure toFailure(final String pipelineStep,
-                                         final WithFailures.ExceptionElement<T> exceptionElement) {
+                                         final WithFailures.ExceptionElement<T> exceptionElement,
+                                         final SerializableFunction<Object, String> elementToString,
+                                         final Coder<T> inputCoder) {
         FailureMetrics.counter(pipelineStep).inc();
-        return Failure.from(pipelineStep, exceptionElement);
+
+        final T element = exceptionElement.element();
+        final Failure failure = Failure.from(pipelineStep, element, exceptionElement.exception(), elementToString);
+
+        return inputCoder == null ? failure : failure.withEncodedInputElement(element, inputCoder);
     }
 }

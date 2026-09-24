@@ -70,6 +70,10 @@ public final class OriginCollectionComposer<OriginT, T> {
     private final PCollectionList<Failure> failuresPCollection;
     private final String lastStepName;
 
+    // Failure settings of the next steps, see withInputElementToString and withEncodedElements.
+    private final SerializableFunction<Object, String> inputElementToString;
+    private final boolean encodeElements;
+
     // Built once: calling getResult() several times must not apply the same (deterministic) transform names twice.
     private Result<PCollection<T>, Failure> result;
 
@@ -79,7 +83,9 @@ public final class OriginCollectionComposer<OriginT, T> {
                                      final Coder<T> valueCoder,
                                      final SerializableFunction<OriginT, String> originToString,
                                      final PCollectionList<Failure> failuresPCollection,
-                                     final String lastStepName) {
+                                     final String lastStepName,
+                                     final SerializableFunction<Object, String> inputElementToString,
+                                     final boolean encodeElements) {
         this.untrackedPCollection = untrackedPCollection;
         this.trackedPCollection = trackedPCollection;
         this.originCoder = originCoder;
@@ -87,12 +93,16 @@ public final class OriginCollectionComposer<OriginT, T> {
         this.originToString = originToString;
         this.failuresPCollection = failuresPCollection;
         this.lastStepName = lastStepName;
+        this.inputElementToString = inputElementToString;
+        this.encodeElements = encodeElements;
     }
 
     static <T> OriginCollectionComposer<T, T> of(final PCollection<T> inputPCollection,
                                                   final PCollectionList<Failure> failuresPCollection,
                                                   final String lastStepName,
-                                                  final SerializableFunction<T, String> originToString) {
+                                                  final SerializableFunction<T, String> originToString,
+                                                  final SerializableFunction<Object, String> inputElementToString,
+                                                  final boolean encodeElements) {
         return new OriginCollectionComposer<>(
                 inputPCollection,
                 null,
@@ -100,7 +110,50 @@ public final class OriginCollectionComposer<OriginT, T> {
                 null,
                 requireNonNull(originToString),
                 failuresPCollection,
-                lastStepName
+                lastStepName,
+                inputElementToString,
+                encodeElements
+        );
+    }
+
+    /**
+     * Converts the input elements of the next steps to a string in the failures with the given function, see
+     * {@link CollectionComposer#withInputElementToString(SerializableFunction)}.
+     *
+     * @param inputElementToString converts an input element to a string
+     * @return a composer converting the input elements of the next steps with the given function
+     */
+    public OriginCollectionComposer<OriginT, T> withInputElementToString(final SerializableFunction<Object, String> inputElementToString) {
+        return new OriginCollectionComposer<>(
+                untrackedPCollection,
+                trackedPCollection,
+                originCoder,
+                valueCoder,
+                originToString,
+                failuresPCollection,
+                lastStepName,
+                requireNonNull(inputElementToString),
+                encodeElements
+        );
+    }
+
+    /**
+     * Also keeps, in the failures of the next steps, the input element and the origin element encoded with their
+     * coders, see {@link CollectionComposer#withEncodedElements()}.
+     *
+     * @return a composer encoding the elements of the next steps in the failures
+     */
+    public OriginCollectionComposer<OriginT, T> withEncodedElements() {
+        return new OriginCollectionComposer<>(
+                untrackedPCollection,
+                trackedPCollection,
+                originCoder,
+                valueCoder,
+                originToString,
+                failuresPCollection,
+                lastStepName,
+                inputElementToString,
+                true
         );
     }
 
@@ -154,7 +207,17 @@ public final class OriginCollectionComposer<OriginT, T> {
         }
 
         trackedPCollection.setCoder(KvCoder.of(originCoder, coder));
-        return new OriginCollectionComposer<>(null, trackedPCollection, originCoder, coder, originToString, failuresPCollection, lastStepName);
+        return new OriginCollectionComposer<>(
+                null,
+                trackedPCollection,
+                originCoder,
+                coder,
+                originToString,
+                failuresPCollection,
+                lastStepName,
+                inputElementToString,
+                encodeElements
+        );
     }
 
     /**
@@ -178,7 +241,8 @@ public final class OriginCollectionComposer<OriginT, T> {
 
         final Coder<OriginT> stepOriginCoder = resolvedOriginCoder();
         final PCollection<KV<OriginT, T>> input = trackedPCollection(name, stepOriginCoder);
-        final BaseElementFn<KV<OriginT, T>, KV<OriginT, OutputT>> stepFn = originFn.forPipelineStep(name);
+        final BaseElementFn<KV<OriginT, T>, KV<OriginT, OutputT>> stepFn =
+                originFn.forPipelineStep(name, inputElementToString, encodedInputCoder(stepOriginCoder));
 
         final PCollectionTuple tuple = input.apply(name,
                 ParDo.of(stepFn).withOutputTags(stepFn.getOutputTag(), TupleTagList.of(stepFn.getFailuresTag())));
@@ -195,8 +259,24 @@ public final class OriginCollectionComposer<OriginT, T> {
                 outputValueCoder,
                 originToString,
                 failuresPCollection.and(tuple.get(stepFn.getFailuresTag())),
-                name
+                name,
+                inputElementToString,
+                encodeElements
         );
+    }
+
+    /**
+     * {@code KvCoder<origin, value>} of the elements consumed by the next step when they're encoded in the failures:
+     * its components encode the value and the origin. {@code null} if the elements aren't encoded, or if the coder of
+     * the values is unknown (not inferred by Beam and not set with {@link #setCoder(Coder)}).
+     */
+    private KvCoder<OriginT, T> encodedInputCoder(final Coder<OriginT> stepOriginCoder) {
+        if (!encodeElements) {
+            return null;
+        }
+
+        final Coder<T> currentValueCoder = currentValueCoder();
+        return currentValueCoder == null ? null : KvCoder.of(stepOriginCoder, currentValueCoder);
     }
 
     /**

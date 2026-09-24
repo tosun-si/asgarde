@@ -35,6 +35,11 @@ result.failures()
 ```
 
 `FailureTransforms.toRow(failure)` converts a single failure, e.g. in your own transform.
+
+With the [encoded elements](/asgarde/concepts/failure/#encoded-elements) (since 1.4.0),
+`FailureTransforms.toRowsWithEncodedElements()` uses the `FailureTransforms.SCHEMA_WITH_ENCODED_ELEMENTS`: the same
+fields plus `inputElementBytes`, `inputElementCoder`, `originElementBytes` and `originElementCoder` (nullable `BYTES`
+and `STRING`). It's a separate schema: the tables created with the `SCHEMA` keep working.
 </TabItem>
 <TabItem label="Kotlin">
 ```kotlin
