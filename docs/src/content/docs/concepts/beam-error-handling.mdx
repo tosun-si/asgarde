@@ -46,7 +46,7 @@ The mapping of a `Failure` to a `BadRecord`:
 | `BadRecord` | From the `Failure` |
 |---|---|
 | `record.humanReadableJsonRecord` | The [origin element](/asgarde/concepts/origin-element/) when it's tracked, the input element otherwise |
-| `record.encodedRecord` | Empty: Asgarde keeps the elements as strings |
+| `record.encodedRecord` and `record.coder` | The same element [encoded with its coder](/asgarde/concepts/failure/#encoded-elements) with `withEncodedElements` (since 1.4.0), empty otherwise |
 | `failure.exception` | The exception, as a string |
 | `failure.exceptionStacktrace` | The stack trace |
 | `failure.description` | The pipeline step |

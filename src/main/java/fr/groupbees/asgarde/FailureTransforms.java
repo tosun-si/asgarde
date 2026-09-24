@@ -43,6 +43,22 @@ public final class FailureTransforms {
             .addNullableField("timestamp", FieldType.DATETIME)
             .build();
 
+    /**
+     * Schema of the failures converted with {@link #toRowsWithEncodedElements()}: the {@link #SCHEMA} and the
+     * encoded elements with their coders (see {@link CollectionComposer#withEncodedElements()}).
+     *
+     * <p>
+     * A separate schema: the {@link #SCHEMA} is unchanged, the tables created with it keep working.
+     * </p>
+     */
+    public static final Schema SCHEMA_WITH_ENCODED_ELEMENTS = Schema.builder()
+            .addFields(SCHEMA.getFields())
+            .addNullableField("inputElementBytes", FieldType.BYTES)
+            .addNullableField("inputElementCoder", FieldType.STRING)
+            .addNullableField("originElementBytes", FieldType.BYTES)
+            .addNullableField("originElementCoder", FieldType.STRING)
+            .build();
+
     private static final String DEFAULT_DESCRIPTION = "Asgarde failure";
 
     private FailureTransforms() {
@@ -53,7 +69,14 @@ public final class FailureTransforms {
      * @return a transform converting the failures to {@link Row}s with the {@link #SCHEMA}
      */
     public static ToRows toRows() {
-        return new ToRows();
+        return new ToRows(false);
+    }
+
+    /**
+     * @return a transform converting the failures to {@link Row}s with the {@link #SCHEMA_WITH_ENCODED_ELEMENTS}
+     */
+    public static ToRows toRowsWithEncodedElements() {
+        return new ToRows(true);
     }
 
     /**
@@ -86,11 +109,30 @@ public final class FailureTransforms {
     }
 
     /**
+     * Converts a failure to a {@link Row} with the {@link #SCHEMA_WITH_ENCODED_ELEMENTS}.
+     *
+     * @param failure the failure
+     * @return the row of the failure, with the encoded elements
+     */
+    public static Row toRowWithEncodedElements(final Failure failure) {
+        return Row.withSchema(SCHEMA_WITH_ENCODED_ELEMENTS)
+                .addValues(toRow(failure).getValues())
+                .addValues(
+                        failure.getInputElementBytes(),
+                        failure.getInputElementCoder(),
+                        failure.getOriginElementBytes(),
+                        failure.getOriginElementCoder()
+                )
+                .build();
+    }
+
+    /**
      * Converts a failure to a Beam {@link BadRecord}:
      *
      * <ul>
      *     <li>record: the origin element when it's tracked (to replay from the start), the input element otherwise,
-     *     as a string (no encoded record: Asgarde keeps the elements as strings)</li>
+     *     as a string, and encoded with its coder when the elements are encoded
+     *     (see {@link CollectionComposer#withEncodedElements()})</li>
      *     <li>failure: the exception, its stack trace, and the pipeline step as description</li>
      * </ul>
      *
@@ -98,13 +140,19 @@ public final class FailureTransforms {
      * @return the bad record of the failure
      */
     public static BadRecord toBadRecord(final Failure failure) {
-        final String element = failure.getOriginElement() != null ? failure.getOriginElement() : failure.getInputElement();
+        final boolean origin = failure.getOriginElement() != null;
+        final String element = origin ? failure.getOriginElement() : failure.getInputElement();
+        final byte[] encodedElement = origin ? failure.getOriginElementBytes() : failure.getInputElementBytes();
+        final String elementCoder = origin ? failure.getOriginElementCoder() : failure.getInputElementCoder();
         final String description = failure.getPipelineStep() != null ? failure.getPipelineStep() : DEFAULT_DESCRIPTION;
 
+        final BadRecord.Record.Builder record = BadRecord.Record.builder().setHumanReadableJsonRecord(element);
+        if (encodedElement != null) {
+            record.setEncodedRecord(encodedElement).setCoder(elementCoder);
+        }
+
         return BadRecord.builder()
-                .setRecord(BadRecord.Record.builder()
-                        .setHumanReadableJsonRecord(element)
-                        .build())
+                .setRecord(record.build())
                 .setFailure(BadRecord.Failure.builder()
                         .setException(failure.getException().toString())
                         .setExceptionStacktrace(failure.getStackTrace())
@@ -114,15 +162,25 @@ public final class FailureTransforms {
     }
 
     /**
-     * Transform converting the failures to {@link Row}s with the {@link #SCHEMA}.
+     * Transform converting the failures to {@link Row}s with the {@link #SCHEMA}, or the
+     * {@link #SCHEMA_WITH_ENCODED_ELEMENTS}.
      */
     public static final class ToRows extends PTransform<PCollection<Failure>, PCollection<Row>> {
 
-        private ToRows() {
+        private final boolean withEncodedElements;
+
+        private ToRows(final boolean withEncodedElements) {
+            this.withEncodedElements = withEncodedElements;
         }
 
         @Override
         public PCollection<Row> expand(final PCollection<Failure> failures) {
+            if (withEncodedElements) {
+                return failures
+                        .apply("Failure to row", MapElements.into(TypeDescriptors.rows()).via(FailureTransforms::toRowWithEncodedElements))
+                        .setRowSchema(SCHEMA_WITH_ENCODED_ELEMENTS);
+            }
+
             return failures
                     .apply("Failure to row", MapElements.into(TypeDescriptors.rows()).via(FailureTransforms::toRow))
                     .setRowSchema(SCHEMA);

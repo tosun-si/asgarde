@@ -1,6 +1,7 @@
 package fr.groupbees.asgarde.transforms;
 
 import fr.groupbees.asgarde.Failure;
+import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.KV;
 
@@ -118,12 +119,28 @@ public final class OriginElementFn<OriginT, InputT, OutputT> extends BaseElement
         try {
             outputs = materialize(function.apply(element.getValue()));
         } catch (Throwable throwable) {
-            final Failure failure = toFailure(element.getValue(), throwable);
-            ctx.output(failuresTag, failure.withOriginElement(originAsString(element.getKey())));
+            final Failure failure = toFailure(element.getValue(), throwable).withOriginElement(originAsString(element.getKey()));
+            ctx.output(failuresTag, withEncodedElements(failure, element));
             return;
         }
 
         outputs.forEach(output -> ctx.output(KV.of(element.getKey(), output)));
+    }
+
+    /**
+     * When the elements are encoded, the value and the origin are encoded with the components of the KV coder.
+     */
+    @SuppressWarnings("unchecked")
+    private Failure withEncodedElements(final Failure failure, final KV<OriginT, InputT> element) {
+        if (!(inputCoder instanceof KvCoder)) {
+            return failure;
+        }
+
+        final KvCoder<OriginT, InputT> kvCoder = (KvCoder<OriginT, InputT>) inputCoder;
+
+        return failure
+                .withEncodedInputElement(element.getValue(), kvCoder.getValueCoder())
+                .withEncodedOriginElement(element.getKey(), kvCoder.getKeyCoder());
     }
 
     /**

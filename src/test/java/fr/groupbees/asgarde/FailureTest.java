@@ -4,6 +4,7 @@ import avro.generated.AvroTest;
 import fr.groupbees.asgarde.settings.JsonUtil;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
+import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.transforms.WithFailures.ExceptionElement;
 import org.apache.beam.sdk.util.SerializableUtils;
 import org.junit.Test;
@@ -117,6 +118,59 @@ public class FailureTest {
         assertThat(resultException.getSuppressed()[1])
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Serializable suppressed");
+    }
+
+    @Test
+    public void givenFailuresSerializedWithAsgarde110And120_whenDeserialize_thenNoEncodedElements() throws Exception {
+        for (String version : new String[]{"1.1.0", "1.2.0"}) {
+            // Given: failures serialized with the published jars, without the encoded elements.
+            final Failure resultFailure;
+            try (InputStream in = getClass().getResourceAsStream("/failures/failure-serialized-with-asgarde-" + version + ".ser");
+                 ObjectInputStream objectIn = new ObjectInputStream(in)) {
+
+                // When.
+                resultFailure = (Failure) objectIn.readObject();
+            }
+
+            // Then.
+            assertThat(resultFailure.getPipelineStep()).isEqualTo("Step " + version);
+            assertThat(resultFailure.getInputElementBytes()).isNull();
+            assertThat(resultFailure.getInputElementCoder()).isNull();
+            assertThat(resultFailure.getOriginElementBytes()).isNull();
+            assertThat(resultFailure.getOriginElementCoder()).isNull();
+        }
+    }
+
+    @Test
+    public void givenElementToString_whenCreateFailure_thenInputElementWithTheFunctionOrToStringFallback() {
+        // When.
+        final Failure withFunction = Failure.from("Step", 42, new IllegalStateException("Error"), element -> "number " + element);
+        final Failure withFailingFunction = Failure.from("Step", 42, new IllegalStateException("Error"), element -> {
+            throw new IllegalStateException("Format error");
+        });
+        final Failure withoutFunction = Failure.from("Step", 42, new IllegalStateException("Error"), null);
+
+        // Then.
+        assertThat(withFunction.getInputElement()).isEqualTo("number 42");
+        assertThat(withFailingFunction.getInputElement()).isEqualTo("42");
+        assertThat(withoutFunction.getInputElement()).isEqualTo("42");
+    }
+
+    @Test
+    public void givenEncodedElements_whenCopyFailure_thenEncodedElementsKept() {
+        // Given.
+        final Failure failure = Failure.from("Step", "element", new IllegalStateException("Error"))
+                .withEncodedInputElement("element", StringUtf8Coder.of())
+                .withEncodedOriginElement("origin", StringUtf8Coder.of());
+
+        // When.
+        final Failure resultFailure = SerializableUtils.clone(failure.withOriginElement("origin"));
+
+        // Then.
+        assertThat(resultFailure.getInputElementBytes()).isEqualTo(failure.getInputElementBytes());
+        assertThat(resultFailure.getOriginElementBytes()).isEqualTo(failure.getOriginElementBytes());
+        assertThat(resultFailure.getOriginElementCoder()).isEqualTo(StringUtf8Coder.of().toString());
+        assertThat(resultFailure.getTimestamp()).isEqualTo(failure.getTimestamp());
     }
 
     @Test

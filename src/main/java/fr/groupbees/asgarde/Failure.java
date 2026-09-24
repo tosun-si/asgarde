@@ -1,6 +1,9 @@
 package fr.groupbees.asgarde;
 
+import org.apache.beam.sdk.coders.Coder;
+import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.WithFailures;
+import org.apache.beam.sdk.util.CoderUtils;
 
 import java.io.PrintWriter;
 import java.io.Serializable;
@@ -29,17 +32,23 @@ public class Failure implements Serializable {
     private final Throwable exception;
     private final String originElement;
     private final Instant timestamp;
+    private final EncodedElement encodedInputElement;
+    private final EncodedElement encodedOriginElement;
 
     private Failure(String pipelineStep,
                     String inputElement,
                     Throwable exception,
                     String originElement,
-                    Instant timestamp) {
+                    Instant timestamp,
+                    EncodedElement encodedInputElement,
+                    EncodedElement encodedOriginElement) {
         this.pipelineStep = pipelineStep;
         this.inputElement = inputElement;
         this.exception = exception;
         this.originElement = originElement;
         this.timestamp = timestamp;
+        this.encodedInputElement = encodedInputElement;
+        this.encodedOriginElement = encodedOriginElement;
     }
 
     /**
@@ -60,7 +69,9 @@ public class Failure implements Serializable {
                 elementAsString(exceptionElement.element()),
                 SerializableThrowable.of(exceptionElement.exception()),
                 null,
-                Instant.now()
+                Instant.now(),
+                null,
+                null
         );
     }
 
@@ -82,9 +93,39 @@ public class Failure implements Serializable {
     public static <T> Failure from(final String pipelineStep,
                                    final T element,
                                    final Throwable exception) {
+        return from(pipelineStep, element, exception, null);
+    }
+
+    /**
+     * Build a {@link fr.groupbees.asgarde.Failure} object with the input element converted by the given function.
+     *
+     * <p>
+     * The conversion never fails: if the function throws or returns {@code null}, the element is converted with
+     * {@code toString()}.
+     * </p>
+     *
+     * @param pipelineStep    the current pipeline step
+     * @param element         a T object
+     * @param exception       a {@link java.lang.Throwable} object
+     * @param elementToString converts the input element to a string, {@code toString()} if {@code null}
+     * @param <T>             a T class
+     * @return a {@link fr.groupbees.asgarde.Failure} object
+     */
+    public static <T> Failure from(final String pipelineStep,
+                                   final T element,
+                                   final Throwable exception,
+                                   final SerializableFunction<Object, String> elementToString) {
         requireNonNull(exception);
 
-        return new Failure(pipelineStep, elementAsString(element), SerializableThrowable.of(exception), null, Instant.now());
+        return new Failure(
+                pipelineStep,
+                elementAsString(element, elementToString),
+                SerializableThrowable.of(exception),
+                null,
+                Instant.now(),
+                null,
+                null
+        );
     }
 
     /**
@@ -95,7 +136,57 @@ public class Failure implements Serializable {
      * @return a copy of this failure with the origin element
      */
     public Failure withOriginElement(final String originElement) {
-        return new Failure(pipelineStep, inputElement, exception, originElement, timestamp);
+        return new Failure(pipelineStep, inputElement, exception, originElement, timestamp, encodedInputElement, encodedOriginElement);
+    }
+
+    /**
+     * Returns a copy of this failure with the input element encoded with the given coder, e.g. the coder of the
+     * PCollection consumed by the failing step, to replay the element exactly.
+     *
+     * <p>
+     * The encoding never fails: if the element can't be encoded, this failure is returned unchanged.
+     * </p>
+     *
+     * @param element the input element
+     * @param coder   the coder of the input element
+     * @param <T>     the input element type
+     * @return a copy of this failure with the encoded input element
+     */
+    public <T> Failure withEncodedInputElement(final T element, final Coder<T> coder) {
+        final EncodedElement encoded = EncodedElement.of(element, coder);
+
+        return encoded == null ? this : new Failure(pipelineStep, inputElement, exception, originElement, timestamp, encoded, encodedOriginElement);
+    }
+
+    /**
+     * Returns a copy of this failure with the origin element encoded with the given coder, see
+     * {@link #withEncodedInputElement(Object, Coder)}.
+     *
+     * @param origin the origin element
+     * @param coder  the coder of the origin element
+     * @param <T>    the origin element type
+     * @return a copy of this failure with the encoded origin element
+     */
+    public <T> Failure withEncodedOriginElement(final T origin, final Coder<T> coder) {
+        final EncodedElement encoded = EncodedElement.of(origin, coder);
+
+        return encoded == null ? this : new Failure(pipelineStep, inputElement, exception, originElement, timestamp, encodedInputElement, encoded);
+    }
+
+    /**
+     * Never fails: a failing or {@code null} result of the user function falls back to {@code toString()}.
+     */
+    private static String elementAsString(final Object element, final SerializableFunction<Object, String> elementToString) {
+        if (elementToString == null) {
+            return elementAsString(element);
+        }
+
+        try {
+            final String result = elementToString.apply(element);
+            return result == null ? elementAsString(element) : result;
+        } catch (RuntimeException e) {
+            return elementAsString(element);
+        }
     }
 
     /**
@@ -175,6 +266,35 @@ public class Failure implements Serializable {
     }
 
     /**
+     * @return the input element encoded with its coder, {@code null} if it's not encoded
+     *         (see {@link CollectionComposer#withEncodedElements()})
+     */
+    public byte[] getInputElementBytes() {
+        return encodedInputElement == null ? null : encodedInputElement.bytes();
+    }
+
+    /**
+     * @return the coder of the encoded input element as a string, {@code null} if it's not encoded
+     */
+    public String getInputElementCoder() {
+        return encodedInputElement == null ? null : encodedInputElement.getCoder();
+    }
+
+    /**
+     * @return the origin element encoded with its coder, {@code null} if it's not encoded
+     */
+    public byte[] getOriginElementBytes() {
+        return encodedOriginElement == null ? null : encodedOriginElement.bytes();
+    }
+
+    /**
+     * @return the coder of the encoded origin element as a string, {@code null} if it's not encoded
+     */
+    public String getOriginElementCoder() {
+        return encodedOriginElement == null ? null : encodedOriginElement.getCoder();
+    }
+
+    /**
      * <p>Getter for the field <code>originElement</code>: the element that entered the flow, as a string.</p>
      *
      * @return the origin element, {@code null} if the origin is not tracked
@@ -195,5 +315,44 @@ public class Failure implements Serializable {
                 ", exception=" + exception +
                 (originElement == null ? "" : ", originElement='" + originElement + '\'') +
                 '}';
+    }
+
+    /**
+     * An element encoded with its coder: the bytes and the coder as a string.
+     */
+    private static final class EncodedElement implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
+        private final byte[] bytes;
+        private final String coder;
+
+        private EncodedElement(final byte[] bytes, final String coder) {
+            this.bytes = bytes;
+            this.coder = coder;
+        }
+
+        /**
+         * Never fails: returns {@code null} if the element can't be encoded.
+         */
+        private static <T> EncodedElement of(final T element, final Coder<T> coder) {
+            if (coder == null) {
+                return null;
+            }
+
+            try {
+                return new EncodedElement(CoderUtils.encodeToByteArray(coder, element), coder.toString());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        private byte[] bytes() {
+            return bytes.clone();
+        }
+
+        private String getCoder() {
+            return coder;
+        }
     }
 }

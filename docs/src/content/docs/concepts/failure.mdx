@@ -25,6 +25,12 @@ public class Failure implements Serializable {
     public String getExceptionMessage();
     public String getStackTrace();         // Causes included
 
+    // Encoded elements with their coder, null if not encoded (since 1.4.0, see withEncodedElements).
+    public byte[] getInputElementBytes();
+    public String getInputElementCoder();
+    public byte[] getOriginElementBytes();
+    public String getOriginElementCoder();
+
     // Getters...
 }
 ```
@@ -70,7 +76,37 @@ The input element is stored as a string:
 - **Python**: the JSON string of a `dict` (non JSON types like `datetime` or `bytes` converted with `str`), the `str()`
   of any other element.
 
-To control the format, implement the string representation of your objects, e.g. as JSON:
+To control the format, give a function to the composer. It applies to all the next steps, and it's the way to go for
+the classes you don't own (Avro, Protobuf, third party classes): e.g. JSON, a format masking sensitive data, or an
+identifier.
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+CollectionComposer.of(orders)
+        .withInputElementToString(element -> JsonUtil.serialize(element))   // since 1.4.0
+        .apply("Parse", ...)
+        .apply("Validate", ...)
+        .getResult();
+```
+</TabItem>
+<TabItem label="Kotlin">
+```kotlin
+CollectionComposer.of(orders)
+    .withInputElementToString { element -> JsonUtil.serialize(element) }
+    .mapFn("Parse", { order -> parse(order) })
+    .result
+```
+</TabItem>
+<TabItem label="Python">
+<Aside>Coming with Asgarde Python 1.4.0 ([issue #12](https://github.com/tosun-si/pasgarde/issues/12)).</Aside>
+</TabItem>
+</Tabs>
+
+The function is evaluated only when a failure occurs. It never breaks the job: if it fails or returns `null`, the
+element is converted with `toString()`.
+
+You can also implement the string representation of your own objects:
 
 <Tabs syncKey="lang">
 <TabItem label="Java">
@@ -101,4 +137,43 @@ class Team:
 <Aside type="caution">
 The input element ends up in your dead letter queue: avoid writing sensitive data in the string representation of
 your objects.
+</Aside>
+
+## Encoded elements
+
+The string is enough to read, search and debug, not to **replay an element exactly** (republish the Pub/Sub or Kafka
+message as it entered, binary formats like Avro or Protobuf). With `withEncodedElements`, the failures also keep the
+input element, and the [origin element](/asgarde/concepts/origin-element/), encoded with their coder:
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+```java
+final WithFailures.Result<PCollection<Order>, Failure> result = CollectionComposer.of(messages)
+        .withEncodedElements()   // since 1.4.0
+        .apply("Parse", MapElementFn.into(TypeDescriptor.of(Order.class)).via(OrderParser::parse))
+        .getResult();
+
+// Replay: decode the element with its coder.
+final Message message = CoderUtils.decodeFromByteArray(messageCoder, failure.getInputElementBytes());
+```
+</TabItem>
+<TabItem label="Python">
+<Aside>Coming with Asgarde Python 1.4.0 ([issue #13](https://github.com/tosun-si/pasgarde/issues/13)).</Aside>
+</TabItem>
+</Tabs>
+
+- **The coder of the step**: the element is encoded with the coder of the `PCollection` consumed by the step, the one
+  the pipeline already uses for these elements. It works for every type Beam can carry: Avro, Protobuf, `Row`, `KV`,
+  custom coders. The coder is also kept as a string (`getInputElementCoder()`).
+- **Only when a failure occurs**, and it never breaks the job: if the element can't be encoded, the failure has no
+  bytes.
+- **Opt-in**: the bytes make the dead letter queue bigger and keep the element in clear.
+
+<Aside title="Limits">
+- **Avro schema evolution**: `AvroCoder` encodes without the schema. If the schema changes between the failure and
+  the replay, prefer a JSON string with `withInputElementToString` for long term replays. Protobuf doesn't have this
+  issue.
+- The coder is taken when the step is built: set the coders (`setCoder`) before applying the next steps.
+- Failures built manually (custom `exceptionsVia`, own DoFn outside the composer): use
+  `failure.withEncodedInputElement(element, coder)`.
 </Aside>

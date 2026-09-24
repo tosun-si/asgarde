@@ -1024,6 +1024,30 @@ class CollectionComposerExtensionsTest : Serializable {
         pipeline.run().waitUntilFinish()
     }
 
+    @Test
+    fun givenInputElementToStringAndEncodedElements_whenFailureWithExtensions_thenFormattedAndEncodedInputElement() {
+        // Given.
+        val words: PCollection<String> = pipeline.apply("Create words", Create.of("bad"))
+
+        // When.
+        val result: Result<PCollection<Int>, Failure> = CollectionComposer.of(words)
+            .withInputElementToString { element -> "word: $element" }
+            .withEncodedElements()
+            .mapFn("Parse", { word -> word.toInt() })
+            .result
+
+        // Then.
+        PAssert.that(
+            result.failures().apply(
+                "To input element and coder",
+                MapElements.into(TypeDescriptors.strings())
+                    .via(SerializableFunction { failure: Failure -> "${failure.inputElement}|${failure.inputElementCoder}" })
+            )
+        ).containsInAnyOrder("word: bad|${org.apache.beam.sdk.coders.StringUtf8Coder.of()}")
+
+        pipeline.run().waitUntilFinish()
+    }
+
     companion object {
         private const val MAP_TO_OTHER_TEAM = "Map to other team"
         private const val FLAT_MAP_TO_PLAYER = "Flat map to player"
