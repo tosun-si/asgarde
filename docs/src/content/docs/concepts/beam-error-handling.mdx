@@ -52,8 +52,38 @@ The mapping of a `Failure` to a `BadRecord`:
 | `failure.description` | The pipeline step |
 </TabItem>
 <TabItem label="Python">
-<Aside>Coming with Asgarde Python 1.3.0: any Beam transform in the composer and the bridge to the Beam
-`ErrorHandler` ([issue #9](https://github.com/tosun-si/pasgarde/issues/9)).</Aside>
+`Failure.to_bad_record` converts a failure to the dead letter format of the Beam `with_exception_handling`,
+`(element, (exception type, exception repr, stack trace lines))`. The element is the
+[origin element](/asgarde/concepts/origin-element/) when it's tracked, the input element otherwise:
+
+```python
+from apache_beam.transforms.error_handling import ErrorHandler
+
+from asgarde import CollectionComposer, Failure
+
+with ErrorHandler(beam.io.WriteToText('gs://my-bucket/dead-letters/bad-record')) as error_handler:
+    # Bad records of a Beam transform using the error handler.
+    parsed = messages | 'Parse' >> beam.Map(parse).with_exception_handling(error_handler=error_handler)
+
+    # Failures of the Asgarde steps, added to the same error handler.
+    result = CollectionComposer.of(parsed).map('Enrich', enrich).filter('Validate', is_valid)
+    error_handler.add_error_pcollection(result.failures | 'To bad records' >> beam.Map(Failure.to_bad_record))
+```
+
+### Any Beam transform in the composer
+
+`apply` adds any Beam `ParDo` (`beam.Map`, `beam.FlatMap`, `beam.ParDo(MyDoFn())`) or `DoFn` to the flow, with the
+Beam native exception handling: its errors become `Failure` objects, gathered with the other steps.
+
+```python
+result = (CollectionComposer.of(messages)
+          .map('Decode', lambda message: message.decode())
+          .apply('Parse', beam.ParDo(ParseOrderDoFn()))
+          .filter('Validate', is_valid))
+```
+
+Beam only gives the representation of the exception: the failure has the original exception type, and the message
+of the last line of the stack trace. `apply` is not available while the origin element is tracked.
 </TabItem>
 </Tabs>
 

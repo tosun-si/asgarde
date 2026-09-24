@@ -7,7 +7,7 @@ import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
 To write the failures to a dead letter queue, convert them to a flat format with a documented schema:
 
-| Field | Type | Description |
+| Field (Java / Python) | Type | Description |
 |---|---|---|
 | `pipelineStep` | string, nullable | Name of the failing step |
 | `inputElement` | string | Input element of the failing step |
@@ -48,8 +48,22 @@ result.failures()
 ```
 </TabItem>
 <TabItem label="Python">
-<Aside>Coming with Asgarde Python 1.3.0: `Failure.to_dict()` and a BigQuery schema
-([issue #8](https://github.com/tosun-si/pasgarde/issues/8)).</Aside>
+`Failure.to_dict()` converts a failure to a flat and JSON serializable dict, with the same fields in snake_case
+(`pipeline_step`, `input_element`...). `FAILURE_BIGQUERY_SCHEMA` is the matching BigQuery table schema:
+
+```python
+from asgarde import FAILURE_BIGQUERY_SCHEMA, Failure
+
+(result.failures
+ | 'Failures to dicts' >> beam.Map(Failure.to_dict)
+ | 'Write failures' >> beam.io.WriteToBigQuery(
+     'my-project:my_dataset.failures',
+     schema=FAILURE_BIGQUERY_SCHEMA,
+     create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+     write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND))
+```
+
+The Java and Python pipelines write to the same table format.
 </TabItem>
 </Tabs>
 

@@ -44,6 +44,14 @@ class Failure:
     exception: Exception     # Exception raised by the step (always picklable)
     stack_trace: str = ''    # Stack trace, as a string
     origin_element: str | None = None  # Element that entered the flow (see Origin element)
+    timestamp: datetime | None = None  # When the failure was created, UTC (since 1.3.0)
+
+    # Computed from the exception (since 1.3.0).
+    exception_type: str                # Qualified name, the original one for a SerializableException
+    exception_message: str | None
+
+    def to_dict(self) -> dict: ...     # See Write the failures
+    def to_bad_record(self): ...       # See Beam native error handling
 
     @classmethod
     def from_exception(cls, pipeline_step: str, element: Any, exception: Exception) -> 'Failure': ...
