@@ -38,7 +38,17 @@ val result: Result<PCollection<Order>, Failure> = CollectionComposer.of(messages
 ```
 </TabItem>
 <TabItem label="Python">
-<Aside>Coming with Asgarde Python 1.2.0 ([issue #4](https://github.com/tosun-si/pasgarde/issues/4)).</Aside>
+```python
+result = (CollectionComposer.of(messages)
+          .with_origin_element(lambda message: message.data.decode())
+          .map('Parse', parse_order)
+          .map('Enrich', enrich_order)
+          .filter('Validate', is_valid_order))
+
+# A failure in "Validate" gives:
+# - failure.input_element: the enriched order
+# - failure.origin_element: the data of the message that entered the flow
+```
 </TabItem>
 </Tabs>
 
@@ -53,14 +63,16 @@ val result: Result<PCollection<Order>, Failure> = CollectionComposer.of(messages
 
 The function decides what is kept in the failure:
 
-| Function | Kept in the failure | Use case |
+| Function (Java / Python) | Kept in the failure | Use case |
 |---|---|---|
-| `message -> message.getPayload()` | The full payload | Replay the failure from the start, from the dead letter queue |
-| `message -> message.getMessageId()` | An identifier | Find the raw message in a landing zone, or in the source (Kafka offset) |
+| `message -> message.getPayload()` / `lambda m: m.data.decode()` | The full payload | Replay the failure from the start, from the dead letter queue |
+| `message -> message.getMessageId()` / `lambda m: m.message_id` | An identifier | Find the raw message in a landing zone, or in the source (Kafka offset) |
 
 ## Supported steps
 
-The origin is kept by the function based Asgarde DoFn classes, checked at compile time:
+**Python**: all the operators (`map`, `flat_map`, `filter`), side inputs included: the functions receive the value.
+
+**Java and Kotlin**: the origin is kept by the function based Asgarde DoFn classes, checked at compile time:
 
 | Java | Kotlin |
 |---|---|
@@ -74,7 +86,7 @@ composer applies the functions on the values and keeps the origin next to them, 
 `MapElements`. Use `MapElementFn` and `FlatMapElementFn` instead.
 </Aside>
 
-The failures of the steps applied **before** `withOriginElement` have no origin element
-(`getOriginElement()` is `null`): the origin is the current element when the tracking starts. For the same reason,
+The failures of the steps applied **before** `withOriginElement` / `with_origin_element` have no origin element
+(`getOriginElement()` is `null`, `origin_element` is `None`): the origin is the current element when the tracking starts. For the same reason,
 the origin can't go through a `GroupByKey` or a `Combine`, which mix several elements: the tracking is limited to the
 steps of the composer.
