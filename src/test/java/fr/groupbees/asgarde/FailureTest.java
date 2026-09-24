@@ -12,6 +12,7 @@ import org.junit.runner.RunWith;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -136,6 +137,66 @@ public class FailureTest {
         assertThat(resultFailure.getException()).isInstanceOf(IllegalStateException.class).hasMessage("Error 1.1.0");
         assertThat(resultFailure.getOriginElement()).isNull();
         assertThat(ObjectStreamClass.lookup(Failure.class).getSerialVersionUID()).isEqualTo(1281992175361165062L);
+    }
+
+    @Test
+    public void givenFailureSerializedWithAsgarde120_whenDeserialize_thenOriginElementAndNoTimestamp() throws Exception {
+        // Given: a failure serialized with the published Asgarde 1.2.0 jar.
+        final Failure resultFailure;
+        try (InputStream in = getClass().getResourceAsStream("/failures/failure-serialized-with-asgarde-1.2.0.ser");
+             ObjectInputStream objectIn = new ObjectInputStream(in)) {
+
+            // When.
+            resultFailure = (Failure) objectIn.readObject();
+        }
+
+        // Then.
+        assertThat(resultFailure.getPipelineStep()).isEqualTo("Step 1.2.0");
+        assertThat(resultFailure.getOriginElement()).isEqualTo("origin 1.2.0");
+        assertThat(resultFailure.getExceptionType()).isEqualTo(IllegalStateException.class.getName());
+        assertThat(resultFailure.getExceptionMessage()).isEqualTo("Error 1.2.0");
+        assertThat(resultFailure.getTimestamp()).isNull();
+    }
+
+    @Test
+    public void givenExceptionWithCause_whenCreateFailure_thenComputedExceptionTypeMessageStackTraceAndTimestamp() {
+        // Given.
+        final Instant before = Instant.now();
+        final IllegalStateException exception = new IllegalStateException("Error", new IllegalArgumentException("Root cause"));
+
+        // When.
+        final Failure resultFailure = Failure.from("Step", "element", exception);
+
+        // Then.
+        assertThat(resultFailure.getExceptionType()).isEqualTo(IllegalStateException.class.getName());
+        assertThat(resultFailure.getExceptionMessage()).isEqualTo("Error");
+        assertThat(resultFailure.getStackTrace())
+                .startsWith("java.lang.IllegalStateException: Error")
+                .contains("at fr.groupbees.asgarde.FailureTest.")
+                .contains("Caused by: java.lang.IllegalArgumentException: Root cause");
+        assertThat(resultFailure.getTimestamp()).isBetween(before, Instant.now());
+        assertThat(resultFailure.withOriginElement("origin").getTimestamp()).isEqualTo(resultFailure.getTimestamp());
+    }
+
+    @Test
+    public void givenNonSerializableException_whenCreateFailure_thenOriginalExceptionTypeInComputedFields() {
+        // When.
+        final Failure resultFailure = Failure.from("Step", "element", new NonSerializableException(null));
+
+        // Then.
+        assertThat(resultFailure.getExceptionType()).isEqualTo(NonSerializableException.class.getName());
+        assertThat(resultFailure.getExceptionMessage()).isEqualTo(NonSerializableException.MESSAGE);
+        assertThat(resultFailure.getStackTrace()).startsWith(NonSerializableException.class.getName() + ": " + NonSerializableException.MESSAGE);
+    }
+
+    @Test
+    public void givenExceptionWithoutMessage_whenCreateFailure_thenNullExceptionMessage() {
+        // When.
+        final Failure resultFailure = Failure.from("Step", "element", new IllegalStateException());
+
+        // Then.
+        assertThat(resultFailure.getExceptionMessage()).isNull();
+        assertThat(resultFailure.getStackTrace()).startsWith("java.lang.IllegalStateException");
     }
 
     @Test

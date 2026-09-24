@@ -53,12 +53,12 @@ Asgarde is published on [Maven Central](https://central.sonatype.com/artifact/fr
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
 </dependency>
 ```
 
 ```kotlin
-implementation("fr.groupbees:asgarde:1.2.0")
+implementation("fr.groupbees:asgarde:1.3.0")
 ```
 
 ## Features
@@ -74,6 +74,10 @@ implementation("fr.groupbees:asgarde:1.2.0")
   that entered the flow, to debug and replay from the start. Evaluated only when a failure occurs.
 - **[Never breaks your job](https://tosun-si.github.io/asgarde/concepts/guarantees/)**: non serializable exceptions,
   failing `toString`, partial flatMap outputs, reused DoFn instances, stable transform names for Dataflow updates.
+- **[Write the failures](https://tosun-si.github.io/asgarde/concepts/write-failures/)** to BigQuery or any
+  schema-aware sink, with a documented schema (exception type, message, stack trace, timestamp...).
+- **[Beam native error handling](https://tosun-si.github.io/asgarde/concepts/beam-error-handling/)**: the failures
+  can be added to a Beam `ErrorHandler` as `BadRecord`s, for a single dead letter queue with the Beam IOs.
 - **[Failure metrics](https://tosun-si.github.io/asgarde/concepts/metrics/)**: a Beam counter per step.
 - **[Kotlin extensions](https://tosun-si.github.io/asgarde/java/kotlin/)** for a concise syntax.
 
@@ -86,9 +90,7 @@ Beam). See [Compatibility](https://tosun-si.github.io/asgarde/project/compatibil
 
 ## Roadmap
 
-See the [roadmap](https://tosun-si.github.io/asgarde/project/roadmap/). Next, the 1.3.0 without breaking change: a
-richer `Failure` (exception type, message, stack trace, timestamp), the failures to BigQuery with a documented
-schema, and the integration with the Beam native error handling (`ErrorHandler`, `BadRecord`).
+See the [roadmap](https://tosun-si.github.io/asgarde/project/roadmap/).
 
 ## Contributing
 

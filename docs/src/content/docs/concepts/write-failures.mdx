@@ -1,0 +1,59 @@
+---
+title: Write the failures
+description: Write the failures to BigQuery or any schema-aware sink.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+To write the failures to a dead letter queue, convert them to a flat format with a documented schema:
+
+| Field | Type | Description |
+|---|---|---|
+| `pipelineStep` | string, nullable | Name of the failing step |
+| `inputElement` | string | Input element of the failing step |
+| `originElement` | string, nullable | [Origin element](/asgarde/concepts/origin-element/), when it's tracked |
+| `exceptionType` | string | Class name of the exception (the original one for a non serializable exception) |
+| `exceptionMessage` | string, nullable | Message of the exception |
+| `stackTrace` | string | Stack trace, causes included |
+| `timestamp` | datetime, nullable | When the failure was created |
+
+## BigQuery
+
+<Tabs syncKey="lang">
+<TabItem label="Java">
+`FailureTransforms.toRows()` converts the failures to Beam `Row`s with the `FailureTransforms.SCHEMA`, used by
+`BigQueryIO` to create the table:
+
+```java
+result.failures()
+        .apply("Failures to rows", FailureTransforms.toRows())
+        .apply("Write failures", BigQueryIO.<Row>write()
+                .to("my-project:my_dataset.failures")
+                .useBeamSchema()
+                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
+                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND));
+```
+
+`FailureTransforms.toRow(failure)` converts a single failure, e.g. in your own transform.
+</TabItem>
+<TabItem label="Kotlin">
+```kotlin
+result.failures()
+    .apply("Failures to rows", FailureTransforms.toRows())
+    .apply("Write failures", BigQueryIO.write<Row>()
+        .to("my-project:my_dataset.failures")
+        .useBeamSchema()
+        .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
+        .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND))
+```
+</TabItem>
+<TabItem label="Python">
+<Aside>Coming with Asgarde Python 1.3.0: `Failure.to_dict()` and a BigQuery schema
+([issue #8](https://github.com/tosun-si/pasgarde/issues/8)).</Aside>
+</TabItem>
+</Tabs>
+
+<Aside title="Why an explicit conversion">
+`Failure` has no default Beam schema on purpose: a default schema would change the coder of the failures (a Dataflow
+streaming `--update` from a previous version would fail) and lose the exception, which a schema can't represent.
+</Aside>

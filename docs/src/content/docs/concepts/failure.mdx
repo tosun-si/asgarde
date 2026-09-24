@@ -15,13 +15,22 @@ public class Failure implements Serializable {
     private final String inputElement;   // Input element, as a string (toString)
     private final Throwable exception;   // Exception raised by the step
     private final String originElement;  // Element that entered the flow, null if not tracked (see Origin element)
+    private final Instant timestamp;     // When the failure was created (since 1.3.0)
 
     public static <T> Failure from(String pipelineStep, WithFailures.ExceptionElement<T> exceptionElement);
     public static <T> Failure from(String pipelineStep, T element, Throwable exception);
 
+    // Computed from the exception (since 1.3.0), e.g. to write the failure to a dead letter queue.
+    public String getExceptionType();      // Class name, the original one for a SerializableThrowable
+    public String getExceptionMessage();
+    public String getStackTrace();         // Causes included
+
     // Getters...
 }
 ```
+
+To write the failures to BigQuery or to add them to a Beam `ErrorHandler`, see
+[Write the failures](/asgarde/concepts/write-failures/) and [Beam native error handling](/asgarde/concepts/beam-error-handling/).
 
 If the exception can't be serialized, it's replaced by a `SerializableThrowable` keeping the original class name,
 message, stack trace and causes (see [Failure handling guarantees](/asgarde/concepts/guarantees/)).
