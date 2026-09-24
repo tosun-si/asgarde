@@ -39,12 +39,18 @@ import java.util.Collections;
  */
 public class CollectionComposer<T> {
 
+    private static final String FAILURES_STEP_NAME = "Get all failures";
+
     private final PCollection<T> outputPCollection;
     private final PCollectionList<Failure> failuresPCollection;
+    private final String lastStepName;
 
-    private CollectionComposer(PCollection<T> outputPCollection, PCollectionList<Failure> failuresPCollection) {
+    private CollectionComposer(PCollection<T> outputPCollection,
+                               PCollectionList<Failure> failuresPCollection,
+                               String lastStepName) {
         this.outputPCollection = outputPCollection;
         this.failuresPCollection = failuresPCollection;
+        this.lastStepName = lastStepName;
     }
 
     /**
@@ -55,7 +61,7 @@ public class CollectionComposer<T> {
      * @return The CollectionComposer instance from the input PCollection
      */
     public static <T> CollectionComposer<T> of(final PCollection<T> inputPCollection) {
-        return new CollectionComposer<>(inputPCollection, PCollectionList.empty(inputPCollection.getPipeline()));
+        return new CollectionComposer<>(inputPCollection, PCollectionList.empty(inputPCollection.getPipeline()), null);
     }
 
     /**
@@ -87,7 +93,7 @@ public class CollectionComposer<T> {
         return apply(
                 name, mapElements
                         .exceptionsInto(TypeDescriptor.of(Failure.class))
-                        .exceptionsVia(exceptionElement -> Failure.from(name, exceptionElement))
+                        .exceptionsVia(exceptionElement -> toFailure(name, exceptionElement))
         );
     }
 
@@ -120,7 +126,7 @@ public class CollectionComposer<T> {
         return apply(
                 name, flatMapElements
                         .exceptionsInto(TypeDescriptor.of(Failure.class))
-                        .exceptionsVia(exceptionElement -> Failure.from(name, exceptionElement))
+                        .exceptionsVia(exceptionElement -> toFailure(name, exceptionElement))
         );
     }
 
@@ -178,7 +184,7 @@ public class CollectionComposer<T> {
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final PTransform<PCollection<T>, Result<PCollection<OutputT>, Failure>> transform) {
         final Result<PCollection<OutputT>, Failure> result = outputPCollection.apply(name, transform);
-        return new CollectionComposer<>(result.output(), failuresPCollection.and(result.failures()));
+        return new CollectionComposer<>(result.output(), failuresPCollection.and(result.failures()), name);
     }
 
     /**
@@ -214,17 +220,17 @@ public class CollectionComposer<T> {
      */
     public CollectionComposer<T> apply(final String name,
                                        final FilterFn<T> doFn) {
-        doFn.setPipelineStep(name);
+        final BaseElementFn<T, T> stepFn = doFn.forPipelineStep(name);
 
         final PCollectionTuple tuple = outputPCollection.apply(name,
-                ParDo.of(doFn).withOutputTags(doFn.getOutputTag(), TupleTagList.of(doFn.getFailuresTag())));
+                ParDo.of(stepFn).withOutputTags(stepFn.getOutputTag(), TupleTagList.of(stepFn.getFailuresTag())));
 
         final PCollection<T> outputCollection = tuple
-                .get(doFn.getOutputTag())
+                .get(stepFn.getOutputTag())
                 .setTypeDescriptor(outputPCollection.getCoder().getEncodedTypeDescriptor())
                 .setCoder(outputPCollection.getCoder());
 
-        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(doFn.getFailuresTag())));
+        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(stepFn.getFailuresTag())), name);
     }
 
     /**
@@ -277,18 +283,18 @@ public class CollectionComposer<T> {
     public <OutputT> CollectionComposer<OutputT> apply(final String name,
                                                        final BaseElementFn<T, OutputT> doFn,
                                                        final Iterable<? extends PCollectionView<?>> sideInputs) {
-        doFn.setPipelineStep(name);
+        final BaseElementFn<T, OutputT> stepFn = doFn.forPipelineStep(name);
 
         final PCollectionTuple tuple = outputPCollection.apply(name,
-                ParDo.of(doFn)
-                        .withOutputTags(doFn.getOutputTag(), TupleTagList.of(doFn.getFailuresTag()))
+                ParDo.of(stepFn)
+                        .withOutputTags(stepFn.getOutputTag(), TupleTagList.of(stepFn.getFailuresTag()))
                         .withSideInputs(sideInputs));
 
         final PCollection<OutputT> outputCollection = tuple
-                .get(doFn.getOutputTag())
-                .setTypeDescriptor(doFn.getOutputTypeDescriptor());
+                .get(stepFn.getOutputTag())
+                .setTypeDescriptor(stepFn.getOutputTypeDescriptor());
 
-        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(doFn.getFailuresTag())));
+        return new CollectionComposer<>(outputCollection, failuresPCollection.and(tuple.get(stepFn.getFailuresTag())), name);
     }
 
     /**
@@ -299,7 +305,7 @@ public class CollectionComposer<T> {
     public CollectionComposer<T> setCoder(final Coder<T> coder) {
         outputPCollection.setCoder(coder);
 
-        return new CollectionComposer<>(outputPCollection, failuresPCollection);
+        return new CollectionComposer<>(outputPCollection, failuresPCollection, lastStepName);
     }
 
     /**
@@ -318,6 +324,19 @@ public class CollectionComposer<T> {
      * @return all failures in a PCollection
      */
     private PCollection<Failure> getFailurePCollection() {
-        return failuresPCollection.apply("Get all failures" + this, Flatten.pCollections());
+        // Deterministic name: Dataflow streaming updates (--update) need stable transform names.
+        final String stepName = lastStepName == null ? FAILURES_STEP_NAME : FAILURES_STEP_NAME + " of " + lastStepName;
+
+        if (failuresPCollection.size() == 0) {
+            return outputPCollection.getPipeline().apply(stepName, Create.empty(TypeDescriptor.of(Failure.class)));
+        }
+
+        return failuresPCollection.apply(stepName, Flatten.pCollections());
+    }
+
+    private static <T> Failure toFailure(final String pipelineStep,
+                                         final WithFailures.ExceptionElement<T> exceptionElement) {
+        FailureMetrics.counter(pipelineStep).inc();
+        return Failure.from(pipelineStep, exceptionElement);
     }
 }

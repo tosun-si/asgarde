@@ -1,6 +1,5 @@
 package fr.groupbees.asgarde.transforms;
 
-import fr.groupbees.asgarde.Failure;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
@@ -75,8 +74,7 @@ public class FilterFn<InputT> extends BaseElementFn<InputT, InputT> {
                 ctx.output(inputElement);
             }
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from(pipelineStep, ctx.element(), throwable);
-            ctx.output(failuresTag, failure);
+            outputFailure(ctx, throwable);
         }
     }
 }

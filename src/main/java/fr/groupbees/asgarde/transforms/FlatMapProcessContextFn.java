@@ -1,9 +1,10 @@
 package fr.groupbees.asgarde.transforms;
 
-import fr.groupbees.asgarde.Failure;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -284,13 +285,16 @@ public class FlatMapProcessContextFn<InputT, OutputT> extends BaseElementFn<Inpu
     @ProcessElement
     public void processElement(DoFn<InputT, OutputT>.ProcessContext ctx) {
         requireNonNull(processContextMapper);
+        // Outputs are materialized first: an Iterable failing in the middle must give a failure only,
+        // not partial outputs AND a failure (replaying the failure would duplicate these outputs).
+        final List<OutputT> outputs;
         try {
-            final Iterable<OutputT> outputs = processContextMapper.apply(ctx);
-
-            outputs.forEach(ctx::output);
+            outputs = materialize(processContextMapper.apply(ctx));
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from(pipelineStep, ctx.element(), throwable);
-            ctx.output(failuresTag, failure);
+            outputFailure(ctx, throwable);
+            return;
         }
+
+        outputs.forEach(ctx::output);
     }
 }

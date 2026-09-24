@@ -6,6 +6,8 @@ import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -256,13 +258,16 @@ public class FlatMapElementFn<InputT, OutputT> extends BaseElementFn<InputT, Out
     public void processElement(DoFn<InputT, OutputT>.ProcessContext ctx) {
         requireNonNull(inputElementMapper);
 
+        // Outputs are materialized first: an Iterable failing in the middle must give a failure only,
+        // not partial outputs AND a failure (replaying the failure would duplicate these outputs).
+        final List<OutputT> outputs;
         try {
-            final Iterable<OutputT> outputs = inputElementMapper.apply(ctx.element());
-
-            outputs.forEach(ctx::output);
+            outputs = materialize(inputElementMapper.apply(ctx.element()));
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from(pipelineStep, ctx.element(), throwable);
-            ctx.output(failuresTag, failure);
+            outputFailure(ctx, throwable);
+            return;
         }
+
+        outputs.forEach(ctx::output);
     }
 }

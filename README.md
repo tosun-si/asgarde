@@ -92,14 +92,14 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
 #### Gradle
 
 ```text
-implementation group: 'fr.groupbees', name: 'asgarde', version: '1.0.0'
+implementation group: 'fr.groupbees', name: 'asgarde', version: '1.1.0'
 ```
 
 ## Error logic with Beam ParDo and DoFn
@@ -702,8 +702,8 @@ public class WordStatsFn extends BaseElementFn<String, WordStats> {
         try {
             ctx.output(toWordStats(sideInputs, ctx));
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from("step", ctx.element(), throwable);
-            ctx.output(failuresTag, failure);
+            // Outputs the Failure with the step name, increments the failure counter and rethrows JVM errors.
+            outputFailure(ctx, throwable);
         }
     }
 }
@@ -771,6 +771,41 @@ We have to set a `Coder` for the output `PCollection` of `GenericRecord` :
 `Asgarde` and the `CollectionComposer` class work as the usual `PCollection` for coders and 
 propose the same `setCoder` method for good outputs.
 
+
+## Failure handling guarantees
+
+Asgarde must never make a job fail because of the error handling itself:
+
+* **Non-serializable exceptions**: a `Failure` is encoded with Java serialization. If an exception can't be
+  serialized (e.g. it holds a client or a lock), it's replaced by a `SerializableThrowable` keeping the original
+  class name, message, stack trace and causes. Serializable exceptions are kept as is.
+* **Input element**: a `null` element or an element whose `toString()` throws gives a failure, not a crash.
+* **JVM errors** (`VirtualMachineError`: `OutOfMemoryError`, `StackOverflowError`...) are rethrown in the Asgarde
+  `DoFn` classes: the worker is unstable and the runner must handle them, not the dead letter queue.
+* **FlatMap operations** (`FlatMapElementFn`, `FlatMapProcessContextFn`): the outputs of an element are
+  materialized before being emitted. An `Iterable` failing in the middle gives a failure only, no partial outputs
+  that would be duplicated when the failure is replayed.
+* **Reused DoFn instances**: the same `DoFn` instance can be applied in several steps, each failure keeps the name
+  of its own step.
+* **Stable transform names**: the failures are flattened in a `Get all failures of <last step name>` transform,
+  with a deterministic name, needed by Dataflow streaming updates (`--update`).
+
+### Failure metrics
+
+Each failure increments a Beam counter, visible in the runner UI (e.g. the Dataflow job metrics):
+
+* namespace: `asgarde-failures` (`FailureMetrics.NAMESPACE`)
+* name: the pipeline step name
+
+This applies to the `CollectionComposer` steps using `MapElements`, `FlatMapElements` and the Asgarde `DoFn`
+classes, and to custom `DoFn` classes calling `outputFailure(ctx, throwable)`. Custom exception handlers given with
+`exceptionsVia` are not counted.
+
+```java
+final MetricQueryResults metrics = pipelineResult.metrics().queryMetrics(MetricsFilter.builder()
+        .addNameFilter(MetricNameFilter.inNamespace(FailureMetrics.NAMESPACE))
+        .build());
+```
 
 ## Asgarde with Kotlin
 
@@ -1275,3 +1310,7 @@ CollectionComposer.of(teamCollection)
 ## Possible evolutions in the future
 
 - Maybe allow injecting a custom `Failure` object and error handling function to be used in all `apply` calls.
+
+## Contributing
+
+Contributions are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).

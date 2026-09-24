@@ -1,6 +1,5 @@
 package fr.groupbees.asgarde.transforms;
 
-import fr.groupbees.asgarde.Failure;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.TypeDescriptor;
@@ -258,8 +257,7 @@ public class MapElementFn<InputT, OutputT> extends BaseElementFn<InputT, OutputT
         try {
             ctx.output(inputElementMapper.apply(ctx.element()));
         } catch (Throwable throwable) {
-            final Failure failure = Failure.from(pipelineStep, ctx.element(), throwable);
-            ctx.output(failuresTag, failure);
+            outputFailure(ctx, throwable);
         }
     }
 }
