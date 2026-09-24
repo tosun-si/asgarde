@@ -341,3 +341,85 @@ inline fun <reified I> CollectionComposer<I>.filter(
 ): CollectionComposer<I> {
     return this.apply(name, FilterFn.by(transform))
 }
+
+/**
+ * Extension for [MapElementFn] class on the [OriginCollectionComposer]: the outputs keep the origin element.
+ *
+ * ```kotlin
+ * CollectionComposer.of(messages)
+ *     .withOriginElement { message -> message.payload }
+ *     .mapFn("Parse", { message -> parse(message) })
+ *     .result
+ * ```
+ *
+ * @param name pipeline step name
+ * @param transform current transformation function
+ * @param setupAction setup action function
+ * @param startBundleAction start bundle action function
+ * @param finishBundleAction finish bundle action function
+ * @param teardownAction teardown action function
+ * @return current [OriginCollectionComposer] class with result output, origin and failures
+ */
+inline fun <OriginT, I, reified O : Serializable> OriginCollectionComposer<OriginT, I>.mapFn(
+    name: String = "map to ${O::class.simpleName}",
+    transform: SerializableFunction<I, O>,
+    setupAction: SerializableAction = SerializableAction { },
+    startBundleAction: SerializableAction = SerializableAction { },
+    finishBundleAction: SerializableAction = SerializableAction { },
+    teardownAction: SerializableAction = SerializableAction { }
+): OriginCollectionComposer<OriginT, O> {
+    return this.apply(
+        name, MapElementFn
+            .into(TypeDescriptor.of(O::class.java))
+            .via(transform)
+            .withSetupAction(setupAction)
+            .withStartBundleAction(startBundleAction)
+            .withFinishBundleAction(finishBundleAction)
+            .withTeardownAction(teardownAction)
+    )
+}
+
+/**
+ * Extension for [FlatMapElementFn] class on the [OriginCollectionComposer]: the outputs keep the origin element of
+ * their input element.
+ *
+ * @param name pipeline step name
+ * @param transform current transformation function
+ * @param setupAction setup action function
+ * @param startBundleAction start bundle action function
+ * @param finishBundleAction finish bundle action function
+ * @param teardownAction teardown action function
+ * @return current [OriginCollectionComposer] class with result output, origin and failures
+ */
+inline fun <OriginT, I, reified O : Serializable> OriginCollectionComposer<OriginT, I>.flatMapFn(
+    name: String = "flatMap to ${O::class.simpleName}",
+    transform: SerializableFunction<I, Iterable<O>>,
+    setupAction: SerializableAction = SerializableAction { },
+    startBundleAction: SerializableAction = SerializableAction { },
+    finishBundleAction: SerializableAction = SerializableAction { },
+    teardownAction: SerializableAction = SerializableAction { }
+): OriginCollectionComposer<OriginT, O> {
+    return this.apply(
+        name, FlatMapElementFn
+            .into(TypeDescriptor.of(O::class.java))
+            .via(transform)
+            .withSetupAction(setupAction)
+            .withStartBundleAction(startBundleAction)
+            .withFinishBundleAction(finishBundleAction)
+            .withTeardownAction(teardownAction)
+    )
+}
+
+/**
+ * Extension for [FilterFn] class on the [OriginCollectionComposer]: the filtered elements keep their origin element.
+ *
+ * @param name pipeline step name
+ * @param transform current predicate function
+ * @return current [OriginCollectionComposer] class with result output, origin and failures
+ */
+inline fun <OriginT, reified I> OriginCollectionComposer<OriginT, I>.filter(
+    name: String = "filter to ${I::class.simpleName}",
+    transform: SerializableFunction<I, Boolean>
+): OriginCollectionComposer<OriginT, I> {
+    return this.apply(name, FilterFn.by(transform))
+}

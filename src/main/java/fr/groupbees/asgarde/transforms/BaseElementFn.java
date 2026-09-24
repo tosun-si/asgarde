@@ -132,12 +132,24 @@ public abstract class BaseElementFn<InputT, OutputT> extends DoFn<InputT, Output
      * @param throwable the error raised for the current element
      */
     protected void outputFailure(final ProcessContext ctx, final Throwable throwable) {
+        ctx.output(failuresTag, toFailure(ctx.element(), throwable));
+    }
+
+    /**
+     * Builds the {@link Failure} of the given element and increments the failure counter of the pipeline step.
+     * JVM errors ({@link VirtualMachineError}) are rethrown, see {@link #outputFailure}.
+     *
+     * @param element   the element concerned by the error
+     * @param throwable the error raised for the element
+     * @return the failure of the element
+     */
+    protected Failure toFailure(final Object element, final Throwable throwable) {
         if (throwable instanceof VirtualMachineError) {
             throw (VirtualMachineError) throwable;
         }
 
         FailureMetrics.counter(pipelineStep).inc();
-        ctx.output(failuresTag, Failure.from(pipelineStep, ctx.element(), throwable));
+        return Failure.from(pipelineStep, element, throwable);
     }
 
     /**

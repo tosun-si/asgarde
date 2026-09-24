@@ -36,6 +36,7 @@ export default defineConfig({
 						{ label: 'Failure', slug: 'concepts/failure' },
 						{ label: 'Failure handling guarantees', slug: 'concepts/guarantees' },
 						{ label: 'Failure metrics', slug: 'concepts/metrics' },
+						{ label: 'Origin element', slug: 'concepts/origin-element' },
 					],
 				},
 				{

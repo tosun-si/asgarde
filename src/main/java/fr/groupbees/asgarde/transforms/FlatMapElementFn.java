@@ -218,6 +218,20 @@ public class FlatMapElementFn<InputT, OutputT> extends BaseElementFn<InputT, Out
     }
 
     /**
+     * Returns the {@link OriginElementFn} applying this flatMap on the values of {@code KV<origin, value>} elements.
+     */
+    <OriginT> OriginElementFn<OriginT, InputT, OutputT> toOriginElementFn(final SerializableFunction<OriginT, String> originToString) {
+        return new OriginElementFn<>(
+                requireNonNull(inputElementMapper),
+                originToString,
+                setupAction,
+                startBundleAction,
+                finishBundleAction,
+                teardownAction
+        );
+    }
+
+    /**
      * <p>Setup action in the DoFn worker lifecycle.</p>
      */
     @Setup

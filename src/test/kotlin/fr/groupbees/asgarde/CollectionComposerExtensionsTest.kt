@@ -17,6 +17,7 @@ import org.apache.beam.sdk.transforms.WithFailures.Result
 import org.apache.beam.sdk.values.PCollection
 import org.apache.beam.sdk.values.PCollectionView
 import org.apache.beam.sdk.values.TypeDescriptor
+import org.apache.beam.sdk.values.TypeDescriptors
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Rule
 import org.junit.Test
@@ -995,6 +996,32 @@ class CollectionComposerExtensionsTest : Serializable {
 
         // Adds the original out at the end of test.
         System.setOut(originalOut)
+    }
+
+    @Test
+    fun givenFailureInThirdStep_whenTrackOriginElementWithExtensions_thenFailureWithTheElementThatEnteredTheFlow() {
+        // Given.
+        val messages: PCollection<String> = pipeline.apply("Create messages", Create.of("psg,ol", "real,bad"))
+
+        // When.
+        val result: Result<PCollection<String>, Failure> = CollectionComposer.of(messages)
+            .withOriginElement { message -> "message: $message" }
+            .mapFn("Parse", { message -> message.uppercase() })
+            .flatMapFn("To words", { line -> line.split(",") })
+            .filter("Validate") { word -> require(word != "BAD") { "Bad word" }; true }
+            .result
+
+        // Then.
+        PAssert.that(result.output()).containsInAnyOrder("PSG", "OL", "REAL")
+        PAssert.that(
+            result.failures().apply(
+                "To step, input and origin",
+                MapElements.into(TypeDescriptors.strings())
+                    .via(SerializableFunction { failure: Failure -> "${failure.pipelineStep}|${failure.inputElement}|${failure.originElement}" })
+            )
+        ).containsInAnyOrder("Validate|BAD|message: real,bad")
+
+        pipeline.run().waitUntilFinish()
     }
 
     companion object {

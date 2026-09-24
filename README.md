@@ -97,14 +97,14 @@ Example with Maven and Gradle :
 <dependency>
     <groupId>fr.groupbees</groupId>
     <artifactId>asgarde</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
 #### Gradle
 
 ```text
-implementation group: 'fr.groupbees', name: 'asgarde', version: '1.1.0'
+implementation group: 'fr.groupbees', name: 'asgarde', version: '1.2.0'
 ```
 
 ## Error logic with Beam ParDo and DoFn
@@ -813,6 +813,29 @@ final MetricQueryResults metrics = pipelineResult.metrics().queryMetrics(Metrics
         .build());
 ```
 
+### Origin element in the failures
+
+A `Failure` contains the input element of the failing step. With `withOriginElement`, the failures of the next steps
+also give the **origin element**, the element that entered the flow, to debug and replay from the start:
+
+```java
+final WithFailures.Result<PCollection<Order>, Failure> result = CollectionComposer.of(messages)
+        .withOriginElement(message -> message.getPayload())
+        .apply("Parse", MapElementFn.into(TypeDescriptor.of(Order.class)).via(OrderParser::parse))
+        .apply("Validate", FilterFn.by(Order::isValid))
+        .getResult();
+
+// A failure in "Validate" gives failure.getOriginElement(): the payload of the input message.
+```
+
+* **Light by design**: each element keeps a reference to its origin (in memory, the composer steps are fused), and
+  the function converting the origin to a string is evaluated **only when a failure occurs**.
+* The function decides what is kept: the full payload to replay, or an identifier (message id, Kafka offset...).
+* Supported steps, checked at compile time: `MapElementFn`, `FlatMapElementFn` and `FilterFn` (Kotlin: `mapFn`,
+  `flatMapFn`, `filter`). The Beam `MapElements` are not supported in this mode, Beam doesn't expose their function.
+
+See the [documentation](https://tosun-si.github.io/asgarde/concepts/origin-element/) for the details.
+
 ## Asgarde with Kotlin
 
 `Apache Beam Java` can be used with `Kotlin`, and it's make the experience more enjoyable.
@@ -1317,9 +1340,6 @@ CollectionComposer.of(teamCollection)
 
 Ideas for the next versions, feedback and contributions are welcome (see [Contributing](#contributing)):
 
-- **Origin input element in the failures** (opt-in): a failure in the 3rd step also gives the element that entered
-  the flow, to debug and replay from the start. Light by design: the origin is only converted to a string when a
-  failure occurs, and it can be reduced to an identifier (message id, Kafka offset, business key).
 - **Richer `Failure` model** (major version): exception type, message and stack trace stored as strings instead of
   the raw exception, a timestamp, and a Beam schema to write the failures directly to BigQuery.
 - **Replayable input element**: pluggable element serializer (JSON, bytes...) instead of `toString()`, to replay the

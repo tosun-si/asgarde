@@ -9,6 +9,10 @@ import org.apache.beam.sdk.util.SerializableUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectStreamClass;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -112,6 +116,44 @@ public class FailureTest {
         assertThat(resultException.getSuppressed()[1])
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Serializable suppressed");
+    }
+
+    @Test
+    public void givenFailureSerializedWithAsgarde110_whenDeserialize_thenSameFieldsAndNoOriginElement() throws Exception {
+        // Given: a failure serialized with the published Asgarde 1.1.0 jar (e.g. in flight in a streaming job updated
+        // to a new Asgarde version).
+        final Failure resultFailure;
+        try (InputStream in = getClass().getResourceAsStream("/failures/failure-serialized-with-asgarde-1.1.0.ser");
+             ObjectInputStream objectIn = new ObjectInputStream(in)) {
+
+            // When.
+            resultFailure = (Failure) objectIn.readObject();
+        }
+
+        // Then.
+        assertThat(resultFailure.getPipelineStep()).isEqualTo("Step 1.1.0");
+        assertThat(resultFailure.getInputElement()).isEqualTo("element 1.1.0");
+        assertThat(resultFailure.getException()).isInstanceOf(IllegalStateException.class).hasMessage("Error 1.1.0");
+        assertThat(resultFailure.getOriginElement()).isNull();
+        assertThat(ObjectStreamClass.lookup(Failure.class).getSerialVersionUID()).isEqualTo(1281992175361165062L);
+    }
+
+    @Test
+    public void givenFailure_whenWithOriginElement_thenCopyWithOriginAndSameFields() {
+        // Given.
+        final IllegalStateException exception = new IllegalStateException("Error");
+        final Failure failure = Failure.from("Step", "element", exception);
+
+        // When.
+        final Failure resultFailure = failure.withOriginElement("origin");
+
+        // Then.
+        assertThat(resultFailure).isNotSameAs(failure);
+        assertThat(failure.getOriginElement()).isNull();
+        assertThat(resultFailure.getOriginElement()).isEqualTo("origin");
+        assertResultFailure(resultFailure, "Step", "element", exception);
+        assertThat(resultFailure.toString()).endsWith(", originElement='origin'}");
+        assertThat(failure.toString()).doesNotContain("originElement");
     }
 
     @Test
