@@ -14,6 +14,7 @@ public class Failure implements Serializable {
     private final String pipelineStep;   // Name of the step
     private final String inputElement;   // Input element, as a string (toString)
     private final Throwable exception;   // Exception raised by the step
+    private final String originElement;  // Element that entered the flow, null if not tracked (see Origin element)
 
     public static <T> Failure from(String pipelineStep, WithFailures.ExceptionElement<T> exceptionElement);
     public static <T> Failure from(String pipelineStep, T element, Throwable exception);
@@ -33,6 +34,7 @@ class Failure:
     input_element: str       # Input element, as a string (JSON for a dict)
     exception: Exception     # Exception raised by the step (always picklable)
     stack_trace: str = ''    # Stack trace, as a string
+    origin_element: str | None = None  # Element that entered the flow (see Origin element)
 
     @classmethod
     def from_exception(cls, pipeline_step: str, element: Any, exception: Exception) -> 'Failure': ...
