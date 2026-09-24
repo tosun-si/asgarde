@@ -6,6 +6,9 @@ description: Ideas for the next versions of Asgarde.
 Ideas for the next versions, for Java and Python. Feedback and contributions are welcome: open an issue on
 [Asgarde Java](https://github.com/tosun-si/asgarde/issues) or [Asgarde Python](https://github.com/tosun-si/pasgarde/issues).
 
+- **Origin input element in the failures** (opt-in): a failure in the 3rd step also gives the element that entered
+  the flow, to debug and replay from the start. Light by design: the origin is only converted to a string when a
+  failure occurs, and it can be reduced to an identifier (message id, Kafka offset, business key).
 - **Richer `Failure` model**: exception type, message and stack trace stored as strings, a timestamp, and a Beam
   schema to write the failures directly to BigQuery.
 - **Replayable input element**: pluggable element serializer (JSON, bytes...) instead of the string representation,

@@ -1317,6 +1317,9 @@ CollectionComposer.of(teamCollection)
 
 Ideas for the next versions, feedback and contributions are welcome (see [Contributing](#contributing)):
 
+- **Origin input element in the failures** (opt-in): a failure in the 3rd step also gives the element that entered
+  the flow, to debug and replay from the start. Light by design: the origin is only converted to a string when a
+  failure occurs, and it can be reduced to an identifier (message id, Kafka offset, business key).
 - **Richer `Failure` model** (major version): exception type, message and stack trace stored as strings instead of
   the raw exception, a timestamp, and a Beam schema to write the failures directly to BigQuery.
 - **Replayable input element**: pluggable element serializer (JSON, bytes...) instead of `toString()`, to replay the
