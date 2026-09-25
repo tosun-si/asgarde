@@ -69,6 +69,11 @@ from asgarde import FAILURE_BIGQUERY_SCHEMA, Failure
 ```
 
 The Java and Python pipelines write to the same table format.
+
+With the [encoded elements](/asgarde/concepts/failure/#encoded-elements) (since 1.4.0),
+`Failure.to_dict_with_encoded_elements()` and `FAILURE_BIGQUERY_SCHEMA_WITH_ENCODED_ELEMENTS` add the bytes (base64,
+the format of the BigQuery `BYTES` columns) and the coders. It's a separate schema: the tables created with the
+`FAILURE_BIGQUERY_SCHEMA` keep working.
 </TabItem>
 </Tabs>
 

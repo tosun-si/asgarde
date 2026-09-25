@@ -99,12 +99,19 @@ CollectionComposer.of(orders)
 ```
 </TabItem>
 <TabItem label="Python">
-<Aside>Coming with Asgarde Python 1.4.0 ([issue #12](https://github.com/tosun-si/pasgarde/issues/12)).</Aside>
+```python
+result = (CollectionComposer.of(orders)
+          .with_input_element_to_string(lambda element: json.dumps(dataclasses.asdict(element)))   # since 1.4.0
+          .map('Parse', parse)
+          .filter('Validate', is_valid))
+```
+
+It also applies to the `apply` steps. In your own DoFn, give it to `Failure.from_exception(step, element, err, element_to_string)`.
 </TabItem>
 </Tabs>
 
-The function is evaluated only when a failure occurs. It never breaks the job: if it fails or returns `null`, the
-element is converted with `toString()`.
+The function is evaluated only when a failure occurs. It never breaks the job: if it fails or returns `null`
+(`None`), the element is converted with the default conversion.
 
 You can also implement the string representation of your own objects:
 
@@ -158,7 +165,20 @@ final Message message = CoderUtils.decodeFromByteArray(messageCoder, failure.get
 ```
 </TabItem>
 <TabItem label="Python">
-<Aside>Coming with Asgarde Python 1.4.0 ([issue #13](https://github.com/tosun-si/pasgarde/issues/13)).</Aside>
+```python
+result = (CollectionComposer.of(messages)
+          .with_encoded_elements()   # since 1.4.0
+          .map('Parse', parse))
+
+# Replay: decode the element with the coder of its type.
+message = beam.coders.registry.get_coder(Message).decode(failure.input_element_bytes)
+```
+
+The coder is the registry coder of the element type of the `PCollection` consumed by the step. Beam Python often
+infers the types (`StrUtf8Coder`, `TupleCoder`, the schema coder of a `NamedTuple`...). Without type hints, the generic
+coder is used: it pickles custom objects, so these bytes are Python specific and depend on the class definitions at
+decode time. `to_dict_with_encoded_elements()` and `FAILURE_BIGQUERY_SCHEMA_WITH_ENCODED_ELEMENTS` give the bytes for
+BigQuery.
 </TabItem>
 </Tabs>
 
