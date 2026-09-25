@@ -334,10 +334,9 @@ public final class OriginCollectionComposer<OriginT, T> {
      * the coder must then be set with {@link #setCoder(Coder)}, as with a usual {@link PCollection}.
      */
     private <OutputT> Coder<OutputT> coderOf(final BaseElementFn<?, OutputT> doFn) {
-        final TypeDescriptor<OutputT> outputType = doFn.getOutputTypeDescriptor();
-
+        // The output type is always set: into(...) is the factory method of MapElementFn and FlatMapElementFn.
         try {
-            return outputType == null ? null : failuresPCollection.getPipeline().getCoderRegistry().getCoder(outputType);
+            return failuresPCollection.getPipeline().getCoderRegistry().getCoder(doFn.getOutputTypeDescriptor());
         } catch (CannotProvideCoderException e) {
             return null;
         }

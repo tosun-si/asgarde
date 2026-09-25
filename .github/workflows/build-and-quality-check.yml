@@ -41,7 +41,7 @@ jobs:
           if [ -n "$INPUT_BEAM_VERSION" ]; then
             LATEST="$INPUT_BEAM_VERSION"
           else
-            LATEST=$(curl -fsSL https://repo1.maven.org/maven2/org/apache/beam/beam-sdks-java-core/maven-metadata.xml \
+            LATEST=$(curl --proto '=https' --tlsv1.2 -fsSL https://repo1.maven.org/maven2/org/apache/beam/beam-sdks-java-core/maven-metadata.xml \
               | grep -oP '(?<=<release>)[^<]+')
           fi
           echo "Latest Beam version: $LATEST"
@@ -88,7 +88,7 @@ jobs:
       - name: Generate test report
         # The token is read-only on PRs from forks: the check run can't be created there.
         if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: dorny/test-reporter@v3
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2  # v3.0.0
         with:
           name: Maven Tests (Beam ${{ matrix.beam-label }}, JDK ${{ matrix.java }})
           path: target/surefire-reports/*.xml

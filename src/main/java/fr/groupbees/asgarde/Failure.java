@@ -9,6 +9,7 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
 import java.time.Instant;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -182,8 +183,8 @@ public class Failure implements Serializable {
         }
 
         try {
-            final String result = elementToString.apply(element);
-            return result == null ? elementAsString(element) : result;
+            // A user function can return null, whatever the nullness annotations of Beam say.
+            return Optional.ofNullable(elementToString.apply(element)).orElseGet(() -> elementAsString(element));
         } catch (RuntimeException e) {
             return elementAsString(element);
         }

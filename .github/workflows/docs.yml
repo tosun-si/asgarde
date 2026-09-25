@@ -37,7 +37,8 @@ jobs:
           cache-dependency-path: docs/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        # No lifecycle scripts of the dependencies in the CI (supply chain): the site builds without them.
+        run: npm ci --ignore-scripts
 
       - name: Build
         run: npm run build
