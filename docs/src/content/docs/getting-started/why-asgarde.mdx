@@ -136,3 +136,37 @@ What Asgarde does for you:
 - Handles errors in filters, which is not available with the Beam `Filter` transform in Java.
 - Guarantees that the error handling itself can't make the job fail, and counts the failures per step with
   [Beam metrics](/asgarde/concepts/metrics/).
+
+## And the Beam ErrorHandler?
+
+The Beam Java SDK has an
+[`ErrorHandler`](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/transforms/errorhandling/ErrorHandler.html):
+registered on the pipeline with a sink, it **aggregates the bad records** of several transforms into a single dead
+letter queue. Some Beam IOs support it natively (e.g. `KafkaIO.read().withBadRecordErrorHandler(handler)`).
+
+But it doesn't catch the errors of your **transformation steps**: the core transforms (`MapElements`,
+`FlatMapElements`, `ParDo`, `Filter`) don't route their errors to an `ErrorHandler`. Each business step still needs
+its own error handling code:
+
+```java
+// Plain Beam, for each business step, to feed an ErrorHandler.
+class ParseFn extends DoFn<String, Order> {
+    @ProcessElement
+    public void process(@Element String json, MultiOutputReceiver out) throws Exception {
+        try {
+            out.get(ORDERS).output(parse(json));
+        } catch (Exception e) {
+            BadRecordRouter.RECORDING_ROUTER.route(out, json, StringUtf8Coder.of(), e, "Parse");
+        }
+    }
+}
+
+final PCollectionTuple parsed = input.apply("Parse", ParDo.of(new ParseFn())
+        .withOutputTags(ORDERS, TupleTagList.of(BadRecordRouter.BAD_RECORD_TAG)));
+errorHandler.addErrorCollection(parsed.get(BadRecordRouter.BAD_RECORD_TAG));
+// ... and the same again for the next steps.
+```
+
+Asgarde removes this code for the transformation steps, and works **with** the `ErrorHandler`: the Asgarde failures
+can be converted to `BadRecord`s and added to it, for a single dead letter queue with the Beam IOs. See
+[Beam native error handling](/asgarde/concepts/beam-error-handling/).
