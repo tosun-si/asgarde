@@ -204,5 +204,51 @@ What each one brings:
 | Kotlin extensions, Python version | ❌ | ✅ |
 
 In short: the `ErrorHandler` **aggregates** the errors and connects the IOs, Asgarde **removes the error handling
-code** of your transformation steps and brings its guarantees. They're complementary, see
+code** of your transformation steps and brings its guarantees.
+
+## Asgarde and the ErrorHandler together
+
+The two work together: the Beam IOs send their bad records to the `ErrorHandler`, the transformation steps are
+written with Asgarde, and the Asgarde failures are added to the same `ErrorHandler`. The whole pipeline gets a
+**single dead letter queue**, without error handling code in the business steps:
+
+```java
+final BadRecordErrorHandler<?> errorHandler = pipeline.registerBadRecordErrorHandler(new WriteDeadLettersToBigQuery());
+
+// 1. Read: the bad records of KafkaIO (e.g. deserialization errors) go to the ErrorHandler.
+final PCollection<String> messages = pipeline
+        .apply("Read orders", KafkaIO.<String, String>read()
+                .withBootstrapServers(bootstrapServers)
+                .withTopic("orders")
+                .withKeyDeserializer(StringDeserializer.class)
+                .withValueDeserializer(StringDeserializer.class)
+                .withBadRecordErrorHandler(errorHandler)
+                .withoutMetadata())
+        .apply("Values", Values.create());
+
+// 2. Transform: the business steps with Asgarde, the errors are caught for you.
+final WithFailures.Result<PCollection<Order>, Failure> result = CollectionComposer.of(messages)
+        .withOriginElement(message -> message)
+        .apply("Parse", MapElementFn.into(TypeDescriptor.of(Order.class)).via(OrderParser::parse))
+        .apply("Validate", FilterFn.by(Order::isValid))
+        .getResult();
+
+// ... and their failures go to the same ErrorHandler.
+errorHandler.addErrorCollection(result.failures().apply("To bad records", FailureTransforms.toBadRecords()));
+
+// 3. Write: the bad records of BigQueryIO go to the ErrorHandler too.
+result.output()
+        .apply("To rows", MapElements.into(TypeDescriptor.of(TableRow.class)).via(Order::toTableRow))
+        .apply("Write orders", BigQueryIO.writeTableRows()
+                .to("my-project:my_dataset.orders")
+                .withErrorHandler(errorHandler));
+
+// A single dead letter queue for the IOs and the business steps.
+errorHandler.close();
+```
+
+The Asgarde failures keep their benefits in the `BadRecord`s: the [origin element](/asgarde/concepts/origin-element/)
+as the record to replay, and the [encoded elements](/asgarde/concepts/failure/#encoded-elements) with their coder.
+To keep the richer `Failure` objects (input and origin elements separately, per step metrics), write them to their
+own sink instead, see [Write the failures](/asgarde/concepts/write-failures/) and
 [Beam native error handling](/asgarde/concepts/beam-error-handling/).
