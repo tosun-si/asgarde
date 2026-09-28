@@ -5,9 +5,13 @@ description: Use Asgarde with the Beam ErrorHandler and BadRecord, for a single 
 
 import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
-Beam has a native error handling: some transforms and IOs (e.g. `KafkaIO`, `BigQueryIO`) can send their bad records
-to an `ErrorHandler`, as `BadRecord` objects. Asgarde and the Beam error handling work together: the Asgarde failures
-can be added to the same `ErrorHandler`, for a **single dead letter queue** for the whole pipeline.
+Beam has a native error handling: the Beam IOs (e.g. `KafkaIO`, `BigQueryIO`, `PubsubIO`) can send their bad records
+to an `ErrorHandler`, as `BadRecord` objects. The `ErrorHandler` aggregates them into a single dead letter queue, but
+it doesn't catch the errors of your transformation steps: the core transforms (`MapElements`, `ParDo`...) don't route
+their errors to it. See the [side by side comparison](/asgarde/getting-started/why-asgarde/#and-the-beam-errorhandler).
+
+Asgarde and the Beam error handling work together: the Asgarde failures can be added to the same `ErrorHandler`, for
+a **single dead letter queue** for the whole pipeline.
 
 ## When to use what
 

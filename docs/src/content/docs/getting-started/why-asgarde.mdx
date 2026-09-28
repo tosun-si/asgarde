@@ -142,31 +142,67 @@ What Asgarde does for you:
 The Beam Java SDK has an
 [`ErrorHandler`](https://beam.apache.org/releases/javadoc/current/org/apache/beam/sdk/transforms/errorhandling/ErrorHandler.html):
 registered on the pipeline with a sink, it **aggregates the bad records** of several transforms into a single dead
-letter queue. Some Beam IOs support it natively (e.g. `KafkaIO.read().withBadRecordErrorHandler(handler)`).
+letter queue. The Beam IOs support it natively (e.g. `KafkaIO.read().withBadRecordErrorHandler(handler)`,
+`BigQueryIO.write().withErrorHandler(handler)`, `PubsubIO.readStrings().withErrorHandler(handler)`).
 
-But it doesn't catch the errors of your **transformation steps**: the core transforms (`MapElements`,
-`FlatMapElements`, `ParDo`, `Filter`) don't route their errors to an `ErrorHandler`. Each business step still needs
-its own error handling code:
+But the `ErrorHandler` is a place to **put** the errors: it doesn't **catch** them in your transformation steps. The
+core transforms (`MapElements`, `FlatMapElements`, `ParDo`, `Filter`) don't route their errors to an `ErrorHandler`,
+so each business step is a `DoFn` with its own `try/catch` block, `BadRecordRouter`, tagged outputs and coder.
+
+The same two-step flow, with both:
 
 ```java
-// Plain Beam, for each business step, to feed an ErrorHandler.
+// With the Beam ErrorHandler: each step is a DoFn catching its own errors.
 class ParseFn extends DoFn<String, Order> {
     @ProcessElement
     public void process(@Element String json, MultiOutputReceiver out) throws Exception {
         try {
-            out.get(ORDERS).output(parse(json));
+            out.get(ORDERS).output(OrderParser.parse(json));
         } catch (Exception e) {
             BadRecordRouter.RECORDING_ROUTER.route(out, json, StringUtf8Coder.of(), e, "Parse");
         }
     }
 }
+// ... and the same DoFn again for ValidateFn, with its own coder for the bad records.
+
+final BadRecordErrorHandler<?> errorHandler = pipeline.registerBadRecordErrorHandler(deadLetterSink);
 
 final PCollectionTuple parsed = input.apply("Parse", ParDo.of(new ParseFn())
         .withOutputTags(ORDERS, TupleTagList.of(BadRecordRouter.BAD_RECORD_TAG)));
 errorHandler.addErrorCollection(parsed.get(BadRecordRouter.BAD_RECORD_TAG));
-// ... and the same again for the next steps.
+
+final PCollectionTuple validated = parsed.get(ORDERS).apply("Validate", ParDo.of(new ValidateFn())
+        .withOutputTags(VALID_ORDERS, TupleTagList.of(BadRecordRouter.BAD_RECORD_TAG)));
+errorHandler.addErrorCollection(validated.get(BadRecordRouter.BAD_RECORD_TAG));
+
+errorHandler.close();
 ```
 
-Asgarde removes this code for the transformation steps, and works **with** the `ErrorHandler`: the Asgarde failures
-can be converted to `BadRecord`s and added to it, for a single dead letter queue with the Beam IOs. See
+```java
+// With Asgarde: the same steps, the errors are caught for you.
+final WithFailures.Result<PCollection<Order>, Failure> result = CollectionComposer.of(input)
+        .apply("Parse", MapElementFn.into(TypeDescriptor.of(Order.class)).via(OrderParser::parse))
+        .apply("Validate", FilterFn.by(Order::isValid))
+        .getResult();
+
+// And the failures can go to the same ErrorHandler, e.g. with the bad records of KafkaIO.
+errorHandler.addErrorCollection(result.failures().apply("To bad records", FailureTransforms.toBadRecords()));
+```
+
+What each one brings:
+
+| | Beam `ErrorHandler` | Asgarde |
+|---|---|---|
+| Single dead letter queue for several steps | ✅ | ✅ |
+| Bad records of the Beam IOs (Kafka, BigQuery, Pub/Sub...) | ✅ native | ✅ by adding the Asgarde failures to the `ErrorHandler` |
+| Catching the errors of your transformation steps | ❌ a `DoFn` with `try/catch` and `BadRecordRouter` per step | ✅ built in, in the fluent `apply` chain |
+| `MapElements` / `FlatMapElements` | ❌ `exceptionsInto` / `exceptionsVia` and a conversion per step | ✅ handled by the composer |
+| Error handling in filters, side inputs, `DoFn` lifecycle actions | ❌ to write in each `DoFn` | ✅ `FilterFn`, `MapProcessContextFn`, lifecycle actions |
+| [Origin element](/asgarde/concepts/origin-element/) (the element that entered the flow) | ❌ | ✅ lazy, evaluated only on failure |
+| [Failure guarantees](/asgarde/concepts/guarantees/) (non serializable exceptions, partial flatMap outputs, stable transform names) | ❌ | ✅ |
+| [Failure metrics](/asgarde/concepts/metrics/) per step | ❌ | ✅ |
+| Kotlin extensions, Python version | ❌ | ✅ |
+
+In short: the `ErrorHandler` **aggregates** the errors and connects the IOs, Asgarde **removes the error handling
+code** of your transformation steps and brings its guarantees. They're complementary, see
 [Beam native error handling](/asgarde/concepts/beam-error-handling/).
