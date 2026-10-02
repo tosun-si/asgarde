@@ -21,6 +21,10 @@ updates:
       # Kotlin 2.x metadata isn't readable by Kotlin 1.x consumers of the extensions.
       - dependency-name: 'org.jetbrains.kotlin:*'
         update-types: [ version-update:semver-major ]
+      # Aligned with the Avro version of Beam (1.11.x): 1.12 needs Java 11 and its generated code
+      # calls Avro 1.12 APIs missing from the Avro provided by Beam.
+      - dependency-name: 'org.apache.avro:avro-maven-plugin'
+        versions: [ '>= 1.12' ]
     groups:
       maven-plugins:
         patterns: [ 'org.apache.maven.plugins:*', 'org.jacoco:*', 'org.apache.avro:*', 'org.sonatype.central:*' ]
