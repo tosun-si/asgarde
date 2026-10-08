@@ -88,7 +88,7 @@ jobs:
       - name: Generate test report
         # The token is read-only on PRs from forks: the check run can't be created there.
         if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2  # v3.0.0
+        uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a  # v3.2.0
         with:
           name: Maven Tests (Beam ${{ matrix.beam-label }}, JDK ${{ matrix.java }})
           path: target/surefire-reports/*.xml
